@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const cities = [
   "Dar es Salaam",
@@ -90,6 +90,98 @@ export default function SettingsPage() {
   // ---- Save feedback ----
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // ---- Biometric / Account Security ----
+  const [biometricSupported, setBiometricSupported] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [biometricRegistering, setBiometricRegistering] = useState(false);
+  const [biometricStatus, setBiometricStatus] = useState<
+    "not_set" | "registered"
+  >("not_set");
+
+  // Check biometric availability on mount
+  useEffect(() => {
+    async function checkBiometric() {
+      if (
+        typeof window !== "undefined" &&
+        window.PublicKeyCredential &&
+        typeof window.PublicKeyCredential
+          .isUserVerifyingPlatformAuthenticatorAvailable === "function"
+      ) {
+        try {
+          const available =
+            await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+          setBiometricSupported(available);
+
+          // Check if user previously registered (from localStorage)
+          const stored = localStorage.getItem("foodos_biometric_registered");
+          if (stored === "true") {
+            setBiometricEnabled(true);
+            setBiometricStatus("registered");
+          }
+        } catch {
+          setBiometricSupported(false);
+        }
+      }
+    }
+    checkBiometric();
+  }, []);
+
+  async function handleBiometricToggle() {
+    if (biometricEnabled) {
+      // Disable biometric
+      setBiometricEnabled(false);
+      setBiometricStatus("not_set");
+      localStorage.removeItem("foodos_biometric_registered");
+      return;
+    }
+
+    // Enable biometric — register credential
+    setBiometricRegistering(true);
+    try {
+      const userId = new Uint8Array(16);
+      crypto.getRandomValues(userId);
+
+      const credential = await navigator.credentials.create({
+        publicKey: {
+          challenge: crypto.getRandomValues(new Uint8Array(32)),
+          rp: {
+            name: "FoodOS",
+            id: window.location.hostname,
+          },
+          user: {
+            id: userId,
+            name: email || "user@foodos.online",
+            displayName: restaurantName || "FoodOS User",
+          },
+          pubKeyCredParams: [
+            { alg: -7, type: "public-key" },
+            { alg: -257, type: "public-key" },
+          ],
+          authenticatorSelection: {
+            authenticatorAttachment: "platform",
+            userVerification: "required",
+            residentKey: "required",
+          },
+          timeout: 60000,
+          attestation: "none",
+        },
+      });
+
+      if (credential) {
+        setBiometricEnabled(true);
+        setBiometricStatus("registered");
+        localStorage.setItem("foodos_biometric_registered", "true");
+        // In production: send credential.response to server for storage
+      }
+    } catch {
+      // User cancelled or error occurred
+      setBiometricEnabled(false);
+      setBiometricStatus("not_set");
+    } finally {
+      setBiometricRegistering(false);
+    }
+  }
 
   function togglePayment(key: string) {
     setPayments((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -843,7 +935,150 @@ export default function SettingsPage() {
       </section>
 
       {/* ================================================================== */}
-      {/* 5. Danger Zone                                                      */}
+      {/* 5. Account Security (Biometric)                                     */}
+      {/* ================================================================== */}
+      {biometricSupported && (
+        <section className="rounded-xl bg-card p-5 shadow-sm md:p-6">
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-green/10 text-lg">
+              <svg
+                className="h-5 w-5 text-brand-green"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
+                />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-foreground">
+                Usalama wa Akaunti
+              </h2>
+              <p className="text-[11px] text-muted-foreground">
+                Account Security
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* Fingerprint Login Toggle */}
+            <div className="rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {/* Fingerprint Icon */}
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                      biometricEnabled
+                        ? "bg-brand-green/10"
+                        : "bg-muted/50"
+                    }`}
+                  >
+                    <svg
+                      className={`h-5 w-5 ${
+                        biometricEnabled
+                          ? "text-brand-green"
+                          : "text-muted-foreground"
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a48.667 48.667 0 00-1.26 10.802M12 2.25c.477 0 .945.043 1.4.126M12 2.25a7.5 7.5 0 00-7.5 7.5c0 .672.034 1.336.1 1.99M12 2.25c-2.036 0-3.9.81-5.258 2.126M12 10.5a2.25 2.25 0 00-2.25 2.25c0 1.81-.2 3.576-.577 5.272M12 10.5c1.243 0 2.25 1.007 2.25 2.25 0 3.156-.382 6.217-1.103 9.138M15 3.375c1.862.86 3.356 2.345 4.236 4.197M9.832 5.893a5.25 5.25 0 017.418 5.857M6.75 10.5a5.25 5.25 0 018.646-4.016M4.5 12.776c.186 1.652.46 3.274.82 4.86M7.5 16.5c.28-1.462.472-2.96.572-4.486"
+                      />
+                    </svg>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Ingia kwa Alama ya Kidole
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Fingerprint Login
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleBiometricToggle}
+                  disabled={biometricRegistering}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                    biometricEnabled ? "bg-brand-green" : "bg-gray-300"
+                  } ${biometricRegistering ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                      biometricEnabled ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Status badge */}
+              <div className="mt-3 flex items-center gap-2">
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                    biometricStatus === "registered"
+                      ? "bg-brand-green/10 text-brand-green"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {biometricStatus === "registered" ? (
+                    <>Imewekwa &#x2713;</>
+                  ) : (
+                    <>Haijawekwa</>
+                  )}
+                </span>
+
+                {biometricRegistering && (
+                  <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <svg
+                      className="h-3.5 w-3.5 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Inasajili... (Registering...)
+                  </span>
+                )}
+              </div>
+
+              <p className="mt-2 text-[10px] text-muted-foreground leading-relaxed">
+                Tumia alama ya kidole au uso wako kuingia kwenye akaunti yako
+                badala ya OTP. Kifaa chako kinahifadhi data ya uthibitisho kwa
+                usalama.
+                <br />
+                Use your fingerprint or face to log in instead of OTP. Your
+                device stores the authentication data securely.
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ================================================================== */}
+      {/* 6. Danger Zone                                                      */}
       {/* ================================================================== */}
       <section className="rounded-xl border-2 border-red-300 bg-card p-5 shadow-sm md:p-6">
         <div className="mb-5 flex items-center gap-3">

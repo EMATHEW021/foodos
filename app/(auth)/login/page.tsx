@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -11,8 +11,32 @@ export default function LoginPage() {
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [biometricSupported, setBiometricSupported] = useState(false);
+  const [biometricLoading, setBiometricLoading] = useState(false);
+  const [biometricSuccess, setBiometricSuccess] = useState(false);
+  const [biometricError, setBiometricError] = useState("");
   const router = useRouter();
   const supabase = createClient();
+
+  // Check if WebAuthn / biometric auth is available on mount
+  useEffect(() => {
+    async function checkBiometric() {
+      if (
+        typeof window !== "undefined" &&
+        window.PublicKeyCredential &&
+        typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable === "function"
+      ) {
+        try {
+          const available =
+            await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+          setBiometricSupported(available);
+        } catch {
+          setBiometricSupported(false);
+        }
+      }
+    }
+    checkBiometric();
+  }, []);
 
   // Format phone: add +255 if needed
   function formatPhone(input: string): string {
@@ -68,6 +92,47 @@ export default function LoginPage() {
     }
 
     router.push("/dashboard");
+  }
+
+  async function handleBiometricLogin() {
+    setBiometricLoading(true);
+    setError("");
+    setBiometricError("");
+
+    try {
+      // Request biometric authentication via WebAuthn
+      const credential = await navigator.credentials.get({
+        publicKey: {
+          challenge: new Uint8Array(32), // In production this comes from server
+          timeout: 60000,
+          rpId: window.location.hostname,
+          userVerification: "required",
+        },
+      });
+
+      if (credential) {
+        // Biometric auth succeeded — show success then redirect
+        setBiometricSuccess(true);
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 1200);
+      } else {
+        setBiometricError("Uthibitisho umeshindwa. Jaribu tena.");
+      }
+    } catch (err: unknown) {
+      if (
+        err instanceof DOMException &&
+        err.name === "NotAllowedError"
+      ) {
+        setBiometricError("Umeghairi uthibitisho.");
+      } else {
+        setBiometricError(
+          "Uthibitisho wa alama ya kidole umeshindwa. Jaribu tena au tumia OTP."
+        );
+      }
+    } finally {
+      setBiometricLoading(false);
+    }
   }
 
   // Detect mobile provider from phone number
@@ -168,6 +233,93 @@ export default function LoginPage() {
                 Badilisha namba (Change number)
               </button>
             </form>
+          )}
+
+          {/* ---- Biometric Login Section ---- */}
+          {biometricSupported && (
+            <>
+              {/* Separator */}
+              <div className="my-6 flex items-center gap-3">
+                <div className="h-px flex-1 bg-gray-200" />
+                <span className="text-xs font-medium text-gray-400">
+                  &mdash; au / or &mdash;
+                </span>
+                <div className="h-px flex-1 bg-gray-200" />
+              </div>
+
+              {/* Biometric success state */}
+              {biometricSuccess ? (
+                <div className="flex flex-col items-center gap-3 py-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
+                    <svg
+                      className="h-7 w-7 text-green-600"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </div>
+                  <p className="text-sm font-semibold text-green-700">
+                    Umethibitishwa! Inaelekeza...
+                  </p>
+                  <p className="text-[11px] text-green-600/70">
+                    Authenticated! Redirecting...
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Biometric / Fingerprint Button */}
+                  <button
+                    type="button"
+                    onClick={handleBiometricLogin}
+                    disabled={biometricLoading}
+                    className="w-full rounded-xl border-2 border-brand-green bg-white py-3 text-sm font-semibold text-green-700 transition hover:bg-green-50 disabled:opacity-50 flex items-center justify-center gap-3"
+                  >
+                    {/* Fingerprint SVG Icon — pulses when loading */}
+                    <svg
+                      className={`h-6 w-6 text-green-600 ${
+                        biometricLoading ? "animate-pulse" : ""
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a48.667 48.667 0 00-1.26 10.802M12 2.25c.477 0 .945.043 1.4.126M12 2.25a7.5 7.5 0 00-7.5 7.5c0 .672.034 1.336.1 1.99M12 2.25c-2.036 0-3.9.81-5.258 2.126M12 10.5a2.25 2.25 0 00-2.25 2.25c0 1.81-.2 3.576-.577 5.272M12 10.5c1.243 0 2.25 1.007 2.25 2.25 0 3.156-.382 6.217-1.103 9.138M15 3.375c1.862.86 3.356 2.345 4.236 4.197M9.832 5.893a5.25 5.25 0 017.418 5.857M6.75 10.5a5.25 5.25 0 018.646-4.016M4.5 12.776c.186 1.652.46 3.274.82 4.86M7.5 16.5c.28-1.462.472-2.96.572-4.486"
+                      />
+                    </svg>
+                    <div className="text-left">
+                      <span className="block leading-tight">
+                        {biometricLoading
+                          ? "Inathibitisha..."
+                          : "Ingia kwa Alama ya Kidole"}
+                      </span>
+                      <span className="block text-[11px] font-normal text-green-600/70">
+                        {biometricLoading
+                          ? "Authenticating..."
+                          : "Biometric Login"}
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Subtle biometric error message in Swahili */}
+                  {biometricError && (
+                    <p className="mt-2 text-center text-xs text-red-500/80">
+                      {biometricError}
+                    </p>
+                  )}
+                </>
+              )}
+            </>
           )}
         </div>
 
