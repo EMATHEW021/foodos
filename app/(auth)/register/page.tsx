@@ -179,14 +179,27 @@ export default function RegisterPage() {
         return;
       }
 
-      // Send welcome email
+      // Send welcome email to restaurant owner
       fetch("/api/email/welcome", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          to: formData.email,
-          name: formData.ownerName,
+          email: formData.email,
+          ownerName: formData.ownerName,
           restaurantName: formData.restaurantName,
+        }),
+      }).catch(() => {});
+
+      // Notify super admin about new application
+      fetch("/api/email/admin-notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          restaurantName: formData.restaurantName,
+          ownerName: formData.ownerName,
+          email: formData.email,
+          phone: formData.phone,
+          city: formData.city,
         }),
       }).catch(() => {});
 
