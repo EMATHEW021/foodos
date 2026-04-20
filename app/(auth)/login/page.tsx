@@ -10,10 +10,13 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [step, setStep] = useState<"input" | "forgot">("input");
+  const [step, setStep] = useState<"input" | "forgot" | "otp" | "newpass" | "done">("input");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [biometricSupported, setBiometricSupported] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [biometricSuccess, setBiometricSuccess] = useState(false);
@@ -114,17 +117,54 @@ export default function LoginPage() {
     setSuccess("");
 
     if (!isEmail) {
-      setError("Tafadhali ingiza email yako kwa kupata link ya nywila. (Please enter your email for password reset.)");
+      setError("Tafadhali ingiza email yako. (Please enter your email.)");
       setLoading(false);
       return;
     }
 
-    const { error: err } = await supabase.auth.resetPasswordForEmail(identifier, {
-      redirectTo: `${window.location.origin}/login`,
+    const { error: err } = await supabase.auth.resetPasswordForEmail(identifier);
+    if (err) { setError(err.message); setLoading(false); return; }
+
+    setStep("otp");
+    setLoading(false);
+  }
+
+  async function handleVerifyOtp(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    const { error: err } = await supabase.auth.verifyOtp({
+      email: identifier,
+      token: otpCode,
+      type: "recovery",
     });
     if (err) { setError(err.message); setLoading(false); return; }
 
-    setSuccess("Tumekutumia link ya kubadilisha nywila kwenye email yako. (Password reset link sent to your email.)");
+    setStep("newpass");
+    setLoading(false);
+  }
+
+  async function handleSetNewPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    if (newPassword.length < 6) {
+      setError("Nywila lazima iwe na angalau herufi 6. (Password must be at least 6 characters.)");
+      setLoading(false);
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Nywila hazifanani. (Passwords don't match.)");
+      setLoading(false);
+      return;
+    }
+
+    const { error: err } = await supabase.auth.updateUser({ password: newPassword });
+    if (err) { setError(err.message); setLoading(false); return; }
+
+    setStep("done");
     setLoading(false);
   }
 
@@ -189,9 +229,15 @@ export default function LoginPage() {
             </h1>
           </div>
           <p className="mt-1 text-sm text-gray-500">
-            {step === "forgot"
+            {step === "input"
+              ? "Ingia kwenye akaunti yako (Login)"
+              : step === "forgot"
               ? "Badilisha nywila yako (Reset Password)"
-              : "Ingia kwenye akaunti yako (Login)"}
+              : step === "otp"
+              ? "Ingiza msimbo wa uthibitisho (Enter OTP)"
+              : step === "newpass"
+              ? "Weka nywila mpya (Set New Password)"
+              : "Nywila imebadilishwa! (Password Changed!)"}
           </p>
         </div>
 
@@ -271,15 +317,15 @@ export default function LoginPage() {
                 Umesahau nywila? (Forgot password?)
               </button>
             </form>
-          ) : (
-            /* ===== FORGOT PASSWORD ===== */
+          ) : step === "forgot" ? (
+            /* ===== FORGOT PASSWORD - ENTER EMAIL ===== */
             <form onSubmit={handleForgotPassword}>
-              <div className="mb-4 rounded-xl bg-brand-green/5 p-4">
+              <div className="mb-4 rounded-xl bg-brand-orange/5 p-4">
                 <p className="text-sm text-gray-600">
-                  Ingiza email yako. Tutakutumia link ya kubadilisha nywila.
+                  Ingiza email yako. Tutakutumia msimbo wa kuthibitisha.
                 </p>
                 <p className="mt-1 text-xs text-gray-400">
-                  Enter your email. We&apos;ll send a password reset link.
+                  Enter your email. We&apos;ll send you a verification code (OTP).
                 </p>
               </div>
 
@@ -296,24 +342,156 @@ export default function LoginPage() {
               />
 
               {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-              {success && <p className="mt-3 text-sm text-brand-green">{success}</p>}
 
               <button
                 type="submit"
                 disabled={loading || !identifier.includes("@")}
                 className="mt-6 w-full rounded-xl bg-brand-green py-3 text-sm font-semibold text-white shadow-lg shadow-brand-green/25 transition hover:bg-brand-green-dark disabled:opacity-50"
               >
-                {loading ? "Inatuma..." : "Tuma Link (Send Reset Link)"}
+                {loading ? "Inatuma..." : "Tuma Msimbo (Send OTP)"}
               </button>
 
               <button
                 type="button"
-                onClick={() => { setStep("input"); setError(""); setSuccess(""); }}
+                onClick={() => { setStep("input"); setError(""); }}
                 className="mt-3 w-full text-sm text-gray-500 transition hover:text-brand-green"
               >
                 Rudi kwenye kuingia (Back to login)
               </button>
             </form>
+          ) : step === "otp" ? (
+            /* ===== ENTER OTP CODE ===== */
+            <form onSubmit={handleVerifyOtp}>
+              <div className="mb-4 rounded-xl bg-brand-green/5 p-4">
+                <div className="flex items-center gap-2">
+                  <svg className="h-5 w-5 text-brand-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-sm font-medium text-gray-700">Msimbo umetumwa!</p>
+                </div>
+                <p className="mt-1 text-xs text-gray-400">
+                  Angalia email yako <span className="font-medium text-gray-600">{identifier}</span> kwa msimbo wa tarakimu 6.
+                </p>
+                <p className="mt-0.5 text-xs text-gray-400">
+                  Check your email for the 6-digit code.
+                </p>
+              </div>
+
+              <label className="block text-sm font-medium text-gray-700">
+                Msimbo wa OTP (OTP Code)
+              </label>
+              <input
+                type="text"
+                placeholder="123456"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-center text-2xl font-bold tracking-[0.5em] transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
+                maxLength={6}
+                required
+                autoFocus
+              />
+
+              {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+              <button
+                type="submit"
+                disabled={loading || otpCode.length < 6}
+                className="mt-6 w-full rounded-xl bg-brand-green py-3 text-sm font-semibold text-white shadow-lg shadow-brand-green/25 transition hover:bg-brand-green-dark disabled:opacity-50"
+              >
+                {loading ? "Inathibitisha..." : "Thibitisha (Verify)"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { handleForgotPassword({ preventDefault: () => {} } as React.FormEvent); }}
+                className="mt-3 w-full text-xs text-gray-400 transition hover:text-brand-green"
+              >
+                Hukupata msimbo? Tuma tena (Resend code)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setStep("input"); setError(""); setOtpCode(""); }}
+                className="mt-1 w-full text-sm text-gray-500 transition hover:text-brand-green"
+              >
+                Rudi kwenye kuingia (Back to login)
+              </button>
+            </form>
+          ) : step === "newpass" ? (
+            /* ===== SET NEW PASSWORD ===== */
+            <form onSubmit={handleSetNewPassword}>
+              <div className="mb-4 rounded-xl bg-brand-green/5 p-4">
+                <div className="flex items-center gap-2">
+                  <svg className="h-5 w-5 text-brand-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <p className="text-sm font-medium text-brand-green">Imethibitishwa! (Verified!)</p>
+                </div>
+                <p className="mt-1 text-xs text-gray-400">
+                  Sasa weka nywila yako mpya. (Now set your new password.)
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Nywila mpya (New Password)
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Angalau herufi 6..."
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
+                    required
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Thibitisha nywila (Confirm Password)
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Rudia nywila..."
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
+                    required
+                  />
+                </div>
+              </div>
+
+              {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+              <button
+                type="submit"
+                disabled={loading || newPassword.length < 6}
+                className="mt-6 w-full rounded-xl bg-brand-green py-3 text-sm font-semibold text-white shadow-lg shadow-brand-green/25 transition hover:bg-brand-green-dark disabled:opacity-50"
+              >
+                {loading ? "Inabadilisha..." : "Badilisha Nywila (Change Password)"}
+              </button>
+            </form>
+          ) : (
+            /* ===== SUCCESS ===== */
+            <div className="flex flex-col items-center gap-4 py-6">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-green/10">
+                <svg className="h-8 w-8 text-brand-green" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-semibold text-brand-charcoal">Nywila imebadilishwa!</p>
+                <p className="mt-1 text-sm text-gray-500">Password changed successfully!</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setStep("input"); setError(""); setOtpCode(""); setNewPassword(""); setConfirmPassword(""); }}
+                className="mt-2 w-full rounded-xl bg-brand-green py-3 text-sm font-semibold text-white shadow-lg shadow-brand-green/25 transition hover:bg-brand-green-dark"
+              >
+                Ingia sasa (Login now)
+              </button>
+            </div>
           )}
 
           {/* Biometric Login */}
