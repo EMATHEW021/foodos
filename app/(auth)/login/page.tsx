@@ -65,17 +65,11 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    // If it's an email, login with email + password
-    // If it's a phone number, we also use email+password
-    // (Supabase signInWithPassword works with email)
-    const emailToUse = isEmail ? identifier : undefined;
-    const phoneToUse = !isEmail ? formatPhone(identifier) : undefined;
+    const credentials = isEmail
+      ? { email: identifier, password }
+      : { phone: formatPhone(identifier), password };
 
-    const { error: err } = await supabase.auth.signInWithPassword({
-      email: emailToUse,
-      phone: phoneToUse,
-      password,
-    });
+    const { error: err } = await supabase.auth.signInWithPassword(credentials);
 
     if (err) {
       setError(err.message);
