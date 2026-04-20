@@ -121,7 +121,7 @@ export default function RegisterPage() {
 
         <div className="text-center">
           <div className="flex items-center justify-center gap-2">
-            <Image src="/images/logo.png" alt="FoodOS" width={40} height={40} />
+            <Image src="/images/logo.svg" alt="FoodOS" width={40} height={40} />
             <h1 className="text-3xl font-bold text-brand-charcoal">
               Food<span className="text-brand-orange">OS</span>
             </h1>

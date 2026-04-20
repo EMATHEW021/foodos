@@ -274,7 +274,7 @@ export default function LandingPage() {
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <Image src="/images/logo.png" alt="FoodOS" width={48} height={48} className="h-12 w-12" />
+            <Image src="/images/logo.svg" alt="FoodOS" width={48} height={48} className="h-12 w-12" />
             <span className="text-2xl font-bold">
               Food<span className="text-brand-orange">OS</span>
             </span>
@@ -651,7 +651,7 @@ export default function LandingPage() {
           {/* Left: Logo */}
           <div className="flex flex-col items-center gap-2 md:items-start">
             <div className="flex items-center gap-3">
-              <Image src="/images/logo.png" alt="FoodOS" width={36} height={36} className="h-9 w-9" />
+              <Image src="/images/logo.svg" alt="FoodOS" width={36} height={36} className="h-9 w-9" />
               <span className="text-lg font-bold text-white">
                 Food<span className="text-brand-orange">OS</span>
               </span>
