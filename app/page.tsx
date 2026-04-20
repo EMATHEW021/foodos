@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const content = {
   sw: {
@@ -169,12 +169,54 @@ function FeatureIcon({ name, className }: { name: string; className?: string }) 
   return <>{icons[name]}</>;
 }
 
+function useScrollReveal() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); observer.unobserve(el); } },
+      { threshold: 0.15 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, visible };
+}
+
+function AnimatedSection({ children, className = "", delay = 0 }: { children: React.ReactNode; className?: string; delay?: number }) {
+  const { ref, visible } = useScrollReveal();
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0)" : "translateY(30px)",
+        transition: `opacity 0.7s ease ${delay}s, transform 0.7s ease ${delay}s`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function LandingPage() {
   const [lang, setLang] = useState<"sw" | "en">("sw");
   const [dark, setDark] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [heroVisible, setHeroVisible] = useState(false);
 
   const t = content[lang];
+
+  // Hero entrance animation
+  useEffect(() => {
+    const timer = setTimeout(() => setHeroVisible(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem("foodos-theme");
@@ -298,7 +340,14 @@ export default function LandingPage() {
 
         <div className="relative mx-auto flex max-w-7xl flex-col items-center gap-16 lg:flex-row lg:justify-between">
           {/* Left: Text */}
-          <div className="max-w-xl text-center lg:text-left">
+          <div
+            className="max-w-xl text-center lg:text-left"
+            style={{
+              opacity: heroVisible ? 1 : 0,
+              transform: heroVisible ? "translateY(0)" : "translateY(40px)",
+              transition: "opacity 0.8s ease, transform 0.8s ease",
+            }}
+          >
             <div className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-semibold ${dark ? "bg-brand-green/15 text-brand-green-light" : "bg-brand-green/10 text-brand-green"}`}>
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-green opacity-75" />
@@ -352,7 +401,14 @@ export default function LandingPage() {
           </div>
 
           {/* Right: Phone Mockup */}
-          <div className="relative flex-shrink-0">
+          <div
+            className="relative flex-shrink-0"
+            style={{
+              opacity: heroVisible ? 1 : 0,
+              transform: heroVisible ? "translateY(0)" : "translateY(50px)",
+              transition: "opacity 1s ease 0.3s, transform 1s ease 0.3s",
+            }}
+          >
             <div className={`relative mx-auto h-[580px] w-[280px] rounded-[40px] border-4 p-2 shadow-2xl ${dark ? "border-gray-700 bg-gray-800" : "border-brand-charcoal bg-white"}`}>
               {/* Phone notch */}
               <div className={`absolute left-1/2 top-0 z-10 h-6 w-24 -translate-x-1/2 rounded-b-xl ${dark ? "bg-gray-700" : "bg-brand-charcoal"}`} />
@@ -439,29 +495,30 @@ export default function LandingPage() {
       {/* ===== FEATURES ===== */}
       <section id="features" className={`px-6 py-20 md:px-12 lg:px-24 ${dark ? "bg-[#13131D]" : "bg-white"}`}>
         <div className="mx-auto max-w-7xl">
-          <div className="text-center">
+          <AnimatedSection className="text-center">
             <h2 className="text-3xl font-extrabold tracking-tight md:text-4xl">{t.features.title}</h2>
             <p className={`mx-auto mt-3 max-w-lg text-sm ${dark ? "text-gray-500" : "text-gray-500"}`}>
               {t.features.subtitle}
             </p>
-          </div>
+          </AnimatedSection>
 
           <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {t.features.items.map((f, i) => (
-              <div
-                key={i}
-                className={`group rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
-                  dark
-                    ? "border-white/5 bg-[#1A1A2E] hover:border-brand-green/20 hover:shadow-brand-green/5"
-                    : "border-gray-100 bg-brand-cream hover:border-brand-green/20 hover:shadow-brand-green/10"
-                }`}
-              >
-                <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${dark ? "bg-brand-green/15" : "bg-brand-green/10"}`}>
-                  <FeatureIcon name={f.icon} className="h-6 w-6 text-brand-green" />
+              <AnimatedSection key={i} delay={i * 0.1}>
+                <div
+                  className={`group h-full rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
+                    dark
+                      ? "border-white/5 bg-[#1A1A2E] hover:border-brand-green/20 hover:shadow-brand-green/5"
+                      : "border-gray-100 bg-brand-cream hover:border-brand-green/20 hover:shadow-brand-green/10"
+                  }`}
+                >
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${dark ? "bg-brand-green/15" : "bg-brand-green/10"}`}>
+                    <FeatureIcon name={f.icon} className="h-6 w-6 text-brand-green" />
+                  </div>
+                  <h3 className="mt-4 text-lg font-bold">{f.title}</h3>
+                  <p className={`mt-2 text-sm leading-relaxed ${dark ? "text-gray-400" : "text-gray-600"}`}>{f.desc}</p>
                 </div>
-                <h3 className="mt-4 text-lg font-bold">{f.title}</h3>
-                <p className={`mt-2 text-sm leading-relaxed ${dark ? "text-gray-400" : "text-gray-600"}`}>{f.desc}</p>
-              </div>
+              </AnimatedSection>
             ))}
           </div>
         </div>
@@ -470,30 +527,31 @@ export default function LandingPage() {
       {/* ===== ROLES ===== */}
       <section className="px-6 py-20 md:px-12 lg:px-24">
         <div className="mx-auto max-w-7xl">
-          <div className="text-center">
+          <AnimatedSection className="text-center">
             <h2 className="text-3xl font-extrabold tracking-tight md:text-4xl">{t.roles.title}</h2>
             <p className={`mx-auto mt-3 max-w-lg text-sm ${dark ? "text-gray-500" : "text-gray-500"}`}>
               {t.roles.subtitle}
             </p>
-          </div>
+          </AnimatedSection>
 
           <div className="mt-14 grid gap-6 md:grid-cols-3">
             {t.roles.items.map((r, i) => (
-              <div
-                key={i}
-                className={`rounded-2xl border p-8 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
-                  dark
-                    ? "border-white/5 bg-[#1A1A2E] hover:shadow-white/5"
-                    : "border-gray-100 bg-white shadow-md"
-                }`}
-              >
-                <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl ${roleColors[r.color]}`}>
-                  <div className={`h-8 w-8 rounded-full ${roleIconColors[r.color]}`} />
+              <AnimatedSection key={i} delay={i * 0.15}>
+                <div
+                  className={`h-full rounded-2xl border p-8 text-center transition-all duration-300 hover:-translate-y-1 hover:shadow-lg ${
+                    dark
+                      ? "border-white/5 bg-[#1A1A2E] hover:shadow-white/5"
+                      : "border-gray-100 bg-white shadow-md"
+                  }`}
+                >
+                  <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl ${roleColors[r.color]}`}>
+                    <div className={`h-8 w-8 rounded-full ${roleIconColors[r.color]}`} />
+                  </div>
+                  <h3 className="mt-5 text-lg font-bold">{r.role}</h3>
+                  {r.roleEn && <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>{r.roleEn}</p>}
+                  <p className={`mt-3 text-sm leading-relaxed ${dark ? "text-gray-400" : "text-gray-600"}`}>{r.desc}</p>
                 </div>
-                <h3 className="mt-5 text-lg font-bold">{r.role}</h3>
-                {r.roleEn && <p className={`text-xs ${dark ? "text-gray-500" : "text-gray-400"}`}>{r.roleEn}</p>}
-                <p className={`mt-3 text-sm leading-relaxed ${dark ? "text-gray-400" : "text-gray-600"}`}>{r.desc}</p>
-              </div>
+              </AnimatedSection>
             ))}
           </div>
         </div>
@@ -502,18 +560,18 @@ export default function LandingPage() {
       {/* ===== PRICING ===== */}
       <section className={`px-6 py-20 md:px-12 lg:px-24 ${dark ? "bg-[#13131D]" : "bg-white"}`}>
         <div className="mx-auto max-w-7xl">
-          <div className="text-center">
+          <AnimatedSection className="text-center">
             <h2 className="text-3xl font-extrabold tracking-tight md:text-4xl">{t.pricing.title}</h2>
             <p className={`mx-auto mt-3 max-w-lg text-sm ${dark ? "text-gray-500" : "text-gray-500"}`}>
               {t.pricing.subtitle}
             </p>
-          </div>
+          </AnimatedSection>
 
           <div className="mx-auto mt-14 grid max-w-3xl gap-6 md:grid-cols-2">
             {t.pricing.plans.map((plan, i) => (
+              <AnimatedSection key={i} delay={i * 0.15}>
               <div
-                key={i}
-                className={`relative rounded-2xl border p-7 transition-all duration-300 hover:-translate-y-1 ${
+                className={`relative h-full rounded-2xl border p-7 transition-all duration-300 hover:-translate-y-1 ${
                   plan.popular
                     ? dark
                       ? "border-brand-green/40 bg-brand-green/5 shadow-lg shadow-brand-green/10"
@@ -562,6 +620,7 @@ export default function LandingPage() {
                   {plan.cta}
                 </Link>
               </div>
+              </AnimatedSection>
             ))}
           </div>
         </div>
@@ -571,7 +630,7 @@ export default function LandingPage() {
       <section className="relative overflow-hidden px-6 py-20 md:px-12">
         <div className="absolute inset-0 bg-gradient-to-br from-brand-green via-brand-green-dark to-brand-green" />
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMSIgY3k9IjEiIHI9IjEiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiLz48L3N2Zz4=')] opacity-50" />
-        <div className="relative mx-auto max-w-2xl text-center">
+        <AnimatedSection className="relative mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-extrabold text-white md:text-4xl">{t.cta.title}</h2>
           <p className="mx-auto mt-4 max-w-md text-base text-white/70">{t.cta.desc}</p>
           <Link
@@ -583,7 +642,7 @@ export default function LandingPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
             </svg>
           </Link>
-        </div>
+        </AnimatedSection>
       </section>
 
       {/* ===== FOOTER ===== */}
