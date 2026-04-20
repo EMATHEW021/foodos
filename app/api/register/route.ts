@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
           phone,
           email: email || null,
           role: "owner",
-          isActive: false, // Inactive until approved
+          isActive: true,
         },
       });
 

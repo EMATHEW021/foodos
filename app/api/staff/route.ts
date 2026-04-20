@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { NextRequest } from "next/server";
 
 // GET - List staff for current tenant
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     const dbUser = await prisma.user.findUnique({
       where: { authId: user.id },
-      include: { tenant: true },
+      include: { tenant: { select: { id: true, kycStatus: true, maxUsers: true } } },
     });
     if (!dbUser) return Response.json({ error: "User not found" }, { status: 404 });
 
@@ -42,16 +42,21 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Permission denied" }, { status: 403 });
     }
 
+    // Block if KYC not approved
+    if (dbUser.tenant?.kycStatus !== "approved") {
+      return Response.json({ error: "Tafadhali wasilisha KYC kwanza. (Please submit KYC first.)" }, { status: 403 });
+    }
+
     // Check max users
     const currentCount = await prisma.user.count({ where: { tenantId: dbUser.tenantId } });
     if (currentCount >= (dbUser.tenant?.maxUsers || 3)) {
       return Response.json({ error: "Maximum staff limit reached. Upgrade your plan." }, { status: 400 });
     }
 
-    const { name, phone, email, role } = await request.json();
+    const { name, phone, email, password, role } = await request.json();
 
-    if (!name || !phone) {
-      return Response.json({ error: "Name and phone are required" }, { status: 400 });
+    if (!name || !email || !password) {
+      return Response.json({ error: "Name, email and password are required" }, { status: 400 });
     }
 
     const validRoles = ["manager", "cashier"];
@@ -59,12 +64,26 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Invalid role" }, { status: 400 });
     }
 
+    // Create Supabase Auth account for the staff member
+    const supabaseAdmin = await createServiceClient();
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    });
+
+    if (authError) {
+      console.error("Auth create error:", authError);
+      return Response.json({ error: authError.message }, { status: 400 });
+    }
+
     const newStaff = await prisma.user.create({
       data: {
         tenantId: dbUser.tenantId,
+        authId: authData.user.id,
         name,
-        phone,
-        email: email || null,
+        phone: phone || "",
+        email,
         role,
         isActive: true,
       },

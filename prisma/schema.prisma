@@ -30,6 +30,15 @@ model Tenant {
   approvedAt         DateTime?      @map("approved_at")
   rejectionReason    String?        @map("rejection_reason") @db.Text
   maxUsers           Int            @default(3) @map("max_users")
+  // KYC fields
+  kycStatus          KycStatus      @default(not_submitted) @map("kyc_status")
+  nidaNumber         String?        @map("nida_number") @db.VarChar(50)
+  shopPhotoUrl       String?        @map("shop_photo_url") @db.Text
+  shopAddress        String?        @map("shop_address") @db.Text
+  shopType           String?        @map("shop_type") @db.VarChar(100)
+  kycSubmittedAt     DateTime?      @map("kyc_submitted_at")
+  kycApprovedAt      DateTime?      @map("kyc_approved_at")
+  kycRejectionReason String?        @map("kyc_rejection_reason") @db.Text
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
@@ -68,6 +77,13 @@ enum TenantStatus {
   approved
   rejected
   suspended
+}
+
+enum KycStatus {
+  not_submitted
+  submitted
+  approved
+  rejected
 }
 
 // ============================================

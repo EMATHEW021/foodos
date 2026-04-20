@@ -154,9 +154,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .then((r) => r.json())
       .then((data) => {
         if (data.name) setAdminUser({ name: data.name, email: data.email || "" });
+        // Role guard: redirect non-super_admin away from admin
+        if (data.role && data.role !== "super_admin") {
+          router.push("/dashboard");
+        }
       })
       .catch(() => {});
-  }, [pathname]);
+  }, [pathname, router]);
 
   async function handleLogout() {
     const supabase = createClient();

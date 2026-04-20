@@ -1,0 +1,76 @@
+{
+  "app": {
+    "[project]/app/(admin)/admin/applications/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(admin)/admin/audit/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(admin)/admin/health/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(admin)/admin/kyc/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(admin)/admin/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(admin)/admin/restaurants/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(admin)/admin/revenue/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(admin)/admin/subscriptions/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(admin)/admin/users/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(auth)/login/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(auth)/register/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(dashboard)/dashboard/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(dashboard)/expenses/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(dashboard)/menu/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(dashboard)/pending/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(dashboard)/pos/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(dashboard)/reports/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(dashboard)/settings/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(dashboard)/staff/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/(dashboard)/stock/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/_not-found/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/offline/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ],
+    "[project]/app/page": [
+      "static/media/caa3a2e1cccd8315-s.p.16t1db8_9y2o~.woff2"
+    ]
+  },
+  "appUsingSizeAdjust": true,
+  "pages": {},
+  "pagesUsingSizeAdjust": false
+}

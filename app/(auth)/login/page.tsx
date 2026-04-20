@@ -108,8 +108,9 @@ export default function LoginPage() {
           router.push("/pos");
           return;
         }
-        if (userData.tenant?.approvalStatus !== "approved") {
-          router.push("/pending");
+        // Manager goes to dashboard too
+        if (userData.role === "manager") {
+          router.push("/dashboard");
           return;
         }
       }

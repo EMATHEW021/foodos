@@ -203,7 +203,8 @@ export default function RegisterPage() {
         }),
       }).catch(() => {});
 
-      setStep("success");
+      // Go straight to dashboard
+      router.push("/dashboard");
     } catch {
       setError("Usajili umeshindwa. Jaribu tena. (Registration failed.)");
     }

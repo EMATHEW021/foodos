@@ -19,6 +19,7 @@ export async function GET() {
             name: true,
             slug: true,
             approvalStatus: true,
+            kycStatus: true,
             subscriptionPlan: true,
           },
         },
