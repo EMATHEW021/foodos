@@ -48,7 +48,7 @@ export default function DashboardLayout({
       >
         {/* Logo */}
         <div className="flex items-center gap-2 px-5 py-5">
-          <Image src="/images/logo.png" alt="FoodOS" width={32} height={32} />
+          <Image src="/images/logo.png" alt="FoodOS" width={32} height={32} className="h-8 w-8 rounded object-contain" />
           <span className="text-lg font-bold text-white">
             Food<span className="text-brand-orange">OS</span>
           </span>

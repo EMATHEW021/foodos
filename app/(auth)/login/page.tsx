@@ -181,7 +181,7 @@ export default function LoginPage() {
         {/* Header */}
         <div className="text-center">
           <div className="flex items-center justify-center gap-2">
-            <Image src="/images/logo.png" alt="FoodOS" width={44} height={44} />
+            <Image src="/images/logo.png" alt="FoodOS" width={44} height={44} className="h-11 w-11 rounded-lg object-contain" />
             <h1 className="text-3xl font-bold text-brand-charcoal">
               Food<span className="text-brand-orange">OS</span>
             </h1>

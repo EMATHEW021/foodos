@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -177,11 +178,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="flex h-full flex-col">
       {/* ── Logo + Admin Badge ── */}
       <div className="flex items-center gap-3 px-5 pt-6 pb-2">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#2D7A3A]">
-          <span className="text-lg">&#127860;</span>
-        </div>
+        <Image src="/images/logo.png" alt="FoodOS" width={36} height={36} className="h-9 w-9 rounded-lg object-contain" />
         <div className="flex items-center gap-2">
-          <span className="text-[15px] font-bold text-white tracking-tight">FoodOS</span>
+          <span className="text-[15px] font-bold text-white tracking-tight">Food<span className="text-[#E8712B]">OS</span></span>
           <span className="rounded-md bg-[#2D7A3A]/40 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#4ade80]">
             Admin
           </span>
@@ -350,8 +349,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </svg>
           </button>
           <div className="flex items-center gap-2">
-            <span className="text-lg">&#127860;</span>
-            <span className="text-sm font-bold text-foreground">FoodOS</span>
+            <Image src="/images/logo.png" alt="FoodOS" width={28} height={28} className="h-7 w-7 rounded object-contain" />
+            <span className="text-sm font-bold text-foreground">Food<span className="text-[#E8712B]">OS</span></span>
             <span className="rounded bg-[#2D7A3A]/10 px-1.5 py-0.5 text-[9px] font-bold text-[#2D7A3A]">
               Admin
             </span>
