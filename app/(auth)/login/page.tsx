@@ -7,11 +7,10 @@ import Link from "next/link";
 import Image from "next/image";
 
 export default function LoginPage() {
-  const [method, setMethod] = useState<"phone" | "email">("phone");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
-  const [step, setStep] = useState<"input" | "otp" | "forgot">("input");
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [step, setStep] = useState<"input" | "forgot">("input");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -40,6 +39,9 @@ export default function LoginPage() {
     checkBiometric();
   }, []);
 
+  // Detect if input is email or phone
+  const isEmail = identifier.includes("@");
+
   function formatPhone(input: string): string {
     let cleaned = input.replace(/\s+/g, "").replace(/[^0-9+]/g, "");
     if (cleaned.startsWith("0")) cleaned = "+255" + cleaned.slice(1);
@@ -48,46 +50,37 @@ export default function LoginPage() {
     return cleaned;
   }
 
-  async function handleSendOTP(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    if (method === "phone") {
-      const formattedPhone = formatPhone(phone);
-      const { error: err } = await supabase.auth.signInWithOtp({ phone: formattedPhone });
-      if (err) { setError(err.message); setLoading(false); return; }
-    } else {
-      const { error: err } = await supabase.auth.signInWithOtp({
-        email,
-        options: { shouldCreateUser: false },
-      });
-      if (err) { setError(err.message); setLoading(false); return; }
-    }
-
-    setStep("otp");
-    setLoading(false);
+  function getProvider(ph: string): string {
+    const cleaned = ph.replace(/\D/g, "");
+    const prefix = cleaned.slice(-9, -7);
+    if (["74", "75"].includes(prefix)) return "M-Pesa";
+    if (["71", "65"].includes(prefix)) return "Tigo Pesa";
+    if (["68", "69"].includes(prefix)) return "Airtel Money";
+    if (["62"].includes(prefix)) return "HaloPesa";
+    return "";
   }
 
-  async function handleVerifyOTP(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    if (method === "phone") {
-      const { error: err } = await supabase.auth.verifyOtp({
-        phone: formatPhone(phone),
-        token: otp,
-        type: "sms",
-      });
-      if (err) { setError(err.message); setLoading(false); return; }
-    } else {
-      const { error: err } = await supabase.auth.verifyOtp({
-        email,
-        token: otp,
-        type: "email",
-      });
-      if (err) { setError(err.message); setLoading(false); return; }
+    // If it's an email, login with email + password
+    // If it's a phone number, we also use email+password
+    // (Supabase signInWithPassword works with email)
+    const emailToUse = isEmail ? identifier : undefined;
+    const phoneToUse = !isEmail ? formatPhone(identifier) : undefined;
+
+    const { error: err } = await supabase.auth.signInWithPassword({
+      email: emailToUse,
+      phone: phoneToUse,
+      password,
+    });
+
+    if (err) {
+      setError(err.message);
+      setLoading(false);
+      return;
     }
 
     router.push("/dashboard");
@@ -99,19 +92,18 @@ export default function LoginPage() {
     setError("");
     setSuccess("");
 
-    if (method === "phone") {
-      const { error: err } = await supabase.auth.signInWithOtp({ phone: formatPhone(phone) });
-      if (err) { setError(err.message); setLoading(false); return; }
-    } else {
-      const { error: err } = await supabase.auth.signInWithOtp({
-        email,
-        options: { shouldCreateUser: false },
-      });
-      if (err) { setError(err.message); setLoading(false); return; }
+    if (!isEmail) {
+      setError("Tafadhali ingiza email yako kwa kupata link ya nywila. (Please enter your email for password reset.)");
+      setLoading(false);
+      return;
     }
 
-    setSuccess(method === "phone" ? "OTP imetumwa kwenye simu yako." : "OTP imetumwa kwenye email yako.");
-    setStep("otp");
+    const { error: err } = await supabase.auth.resetPasswordForEmail(identifier, {
+      redirectTo: `${window.location.origin}/login`,
+    });
+    if (err) { setError(err.message); setLoading(false); return; }
+
+    setSuccess("Tumekutumia link ya kubadilisha nywila kwenye email yako. (Password reset link sent to your email.)");
     setLoading(false);
   }
 
@@ -138,25 +130,14 @@ export default function LoginPage() {
       if (err instanceof DOMException && err.name === "NotAllowedError") {
         setBiometricError("Umeghairi uthibitisho.");
       } else {
-        setBiometricError("Uthibitisho umeshindwa. Jaribu tena au tumia OTP.");
+        setBiometricError("Uthibitisho umeshindwa. Jaribu tena.");
       }
     } finally {
       setBiometricLoading(false);
     }
   }
 
-  function getProvider(ph: string): string {
-    const cleaned = ph.replace(/\D/g, "");
-    const prefix = cleaned.slice(-9, -7);
-    if (["74", "75"].includes(prefix)) return "M-Pesa";
-    if (["71", "65"].includes(prefix)) return "Tigo Pesa";
-    if (["68", "69"].includes(prefix)) return "Airtel Money";
-    if (["62"].includes(prefix)) return "HaloPesa";
-    return "";
-  }
-
-  const inputValue = method === "phone" ? phone : email;
-  const inputValid = method === "phone" ? phone.length >= 9 : email.includes("@");
+  const inputValid = identifier.length >= 3 && password.length >= 1;
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-brand-cream px-4">
@@ -188,82 +169,68 @@ export default function LoginPage() {
           </div>
           <p className="mt-1 text-sm text-gray-500">
             {step === "forgot"
-              ? "Pata tena akaunti yako (Recover Account)"
+              ? "Badilisha nywila yako (Reset Password)"
               : "Ingia kwenye akaunti yako (Login)"}
           </p>
         </div>
 
         {/* Card */}
         <div className="mt-8 rounded-2xl border border-gray-100 bg-white/80 p-8 shadow-lg backdrop-blur-sm">
-          {/* Method Toggle — Phone / Email */}
-          {step !== "otp" && (
-            <div className="mb-6 flex rounded-xl bg-gray-100 p-1">
-              <button
-                type="button"
-                onClick={() => { setMethod("phone"); setError(""); }}
-                className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition ${
-                  method === "phone"
-                    ? "bg-white text-brand-charcoal shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
-                </svg>
-                Simu
-              </button>
-              <button
-                type="button"
-                onClick={() => { setMethod("email"); setError(""); }}
-                className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium transition ${
-                  method === "email"
-                    ? "bg-white text-brand-charcoal shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                </svg>
-                Email
-              </button>
-            </div>
-          )}
 
           {step === "input" ? (
-            <form onSubmit={handleSendOTP}>
-              {method === "phone" ? (
-                <>
+            <form onSubmit={handleLogin}>
+              <div className="space-y-4">
+                {/* Email or Phone */}
+                <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Namba ya Simu (Phone Number)
-                  </label>
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="rounded-xl bg-gray-100 px-3 py-2.5 text-sm font-medium text-gray-600">+255</span>
-                    <input
-                      type="tel"
-                      placeholder="0741234567"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
-                    />
-                  </div>
-                  {phone.length >= 9 && (
-                    <p className="mt-1 text-xs text-gray-400">{getProvider(phone)}</p>
-                  )}
-                </>
-              ) : (
-                <>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Barua pepe (Email Address)
+                    Email au Namba ya Simu (Email or Phone)
                   </label>
                   <input
-                    type="email"
-                    placeholder="salma@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
+                    type="text"
+                    placeholder="salma@example.com au 0741234567"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
+                    required
                   />
-                </>
-              )}
+                  {!isEmail && identifier.length >= 9 && (
+                    <p className="mt-1 text-xs text-gray-400">{getProvider(identifier)}</p>
+                  )}
+                </div>
+
+                {/* Password */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Nywila (Password)
+                  </label>
+                  <div className="relative mt-1">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Ingiza nywila yako..."
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 pr-12 text-sm transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? (
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                        </svg>
+                      ) : (
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
 
               {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
@@ -272,7 +239,7 @@ export default function LoginPage() {
                 disabled={loading || !inputValid}
                 className="mt-6 w-full rounded-xl bg-brand-green py-3 text-sm font-semibold text-white shadow-lg shadow-brand-green/25 transition hover:bg-brand-green-dark disabled:opacity-50"
               >
-                {loading ? "Inatuma..." : "Tuma OTP (Send OTP)"}
+                {loading ? "Inaingia..." : "Ingia (Login)"}
               </button>
 
               <button
@@ -283,51 +250,39 @@ export default function LoginPage() {
                 Umesahau nywila? (Forgot password?)
               </button>
             </form>
-          ) : step === "forgot" ? (
+          ) : (
+            /* ===== FORGOT PASSWORD ===== */
             <form onSubmit={handleForgotPassword}>
               <div className="mb-4 rounded-xl bg-brand-green/5 p-4">
                 <p className="text-sm text-gray-600">
-                  {method === "phone"
-                    ? "Ingiza namba yako ya simu. Tutakutumia OTP mpya ya kuingia."
-                    : "Ingiza email yako. Tutakutumia OTP mpya ya kuingia."}
+                  Ingiza email yako. Tutakutumia link ya kubadilisha nywila.
                 </p>
                 <p className="mt-1 text-xs text-gray-400">
-                  {method === "phone"
-                    ? "Enter your phone number. We'll send a new OTP."
-                    : "Enter your email. We'll send a new OTP."}
+                  Enter your email. We&apos;ll send a password reset link.
                 </p>
               </div>
 
-              {method === "phone" ? (
-                <div className="flex items-center gap-2">
-                  <span className="rounded-xl bg-gray-100 px-3 py-2.5 text-sm font-medium text-gray-600">+255</span>
-                  <input
-                    type="tel"
-                    placeholder="0741234567"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
-                  />
-                </div>
-              ) : (
-                <input
-                  type="email"
-                  placeholder="salma@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
-                />
-              )}
+              <label className="block text-sm font-medium text-gray-700">
+                Barua pepe (Email)
+              </label>
+              <input
+                type="email"
+                placeholder="salma@example.com"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
+                required
+              />
 
               {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
               {success && <p className="mt-3 text-sm text-brand-green">{success}</p>}
 
               <button
                 type="submit"
-                disabled={loading || !inputValid}
+                disabled={loading || !identifier.includes("@")}
                 className="mt-6 w-full rounded-xl bg-brand-green py-3 text-sm font-semibold text-white shadow-lg shadow-brand-green/25 transition hover:bg-brand-green-dark disabled:opacity-50"
               >
-                {loading ? "Inatuma..." : "Tuma OTP Mpya (Send Reset OTP)"}
+                {loading ? "Inatuma..." : "Tuma Link (Send Reset Link)"}
               </button>
 
               <button
@@ -336,45 +291,6 @@ export default function LoginPage() {
                 className="mt-3 w-full text-sm text-gray-500 transition hover:text-brand-green"
               >
                 Rudi kwenye kuingia (Back to login)
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleVerifyOTP}>
-              <p className="text-sm text-gray-600">
-                {method === "phone"
-                  ? <>Tumekutumia SMS kwenye <strong>{formatPhone(phone)}</strong></>
-                  : <>Tumekutumia OTP kwenye <strong>{email}</strong></>}
-              </p>
-              {success && <p className="mt-2 text-sm text-brand-green">{success}</p>}
-
-              <label className="mt-4 block text-sm font-medium text-gray-700">
-                Ingiza Nambari ya OTP
-              </label>
-              <input
-                type="text"
-                placeholder="123456"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-center text-2xl tracking-[0.5em] transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
-                maxLength={6}
-              />
-
-              {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-
-              <button
-                type="submit"
-                disabled={loading || otp.length < 6}
-                className="mt-6 w-full rounded-xl bg-brand-green py-3 text-sm font-semibold text-white shadow-lg shadow-brand-green/25 transition hover:bg-brand-green-dark disabled:opacity-50"
-              >
-                {loading ? "Inathibitisha..." : "Thibitisha (Verify)"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setStep("input"); setOtp(""); setError(""); setSuccess(""); }}
-                className="mt-3 w-full text-sm text-gray-500 transition hover:text-brand-green"
-              >
-                {method === "phone" ? "Badilisha namba (Change number)" : "Badilisha email (Change email)"}
               </button>
             </form>
           )}
