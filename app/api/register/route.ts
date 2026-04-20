@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
           phone,
           email: email || null,
           city,
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
         },
       });
 
