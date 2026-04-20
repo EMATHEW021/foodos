@@ -44,10 +44,16 @@ export default function LoginPage() {
 
   function formatPhone(input: string): string {
     let cleaned = input.replace(/\s+/g, "").replace(/[^0-9+]/g, "");
-    if (cleaned.startsWith("0")) cleaned = "+255" + cleaned.slice(1);
-    else if (cleaned.startsWith("255")) cleaned = "+" + cleaned;
-    else if (!cleaned.startsWith("+")) cleaned = "+255" + cleaned;
-    return cleaned;
+    // Remove leading + for processing
+    if (cleaned.startsWith("+")) cleaned = cleaned.slice(1);
+    // 2557XXXXXXXX or 2556XXXXXXXX → already full number
+    if (cleaned.startsWith("255") && cleaned.length >= 12) return "+" + cleaned;
+    // 07XXXXXXXX or 06XXXXXXXX → remove leading 0
+    if (cleaned.startsWith("0") && cleaned.length >= 10) return "+255" + cleaned.slice(1);
+    // 7XXXXXXXX or 6XXXXXXXX → 9 digits starting with 6 or 7
+    if (/^[67]\d{8}$/.test(cleaned)) return "+255" + cleaned;
+    // Fallback: assume local number
+    return "+255" + cleaned;
   }
 
   function getProvider(ph: string): string {

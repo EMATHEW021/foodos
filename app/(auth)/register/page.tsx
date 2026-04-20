@@ -73,10 +73,11 @@ export default function RegisterPage() {
 
   function formatPhone(input: string): string {
     let cleaned = input.replace(/\s+/g, "").replace(/[^0-9+]/g, "");
-    if (cleaned.startsWith("0")) cleaned = "+255" + cleaned.slice(1);
-    else if (cleaned.startsWith("255")) cleaned = "+" + cleaned;
-    else if (!cleaned.startsWith("+")) cleaned = "+255" + cleaned;
-    return cleaned;
+    if (cleaned.startsWith("+")) cleaned = cleaned.slice(1);
+    if (cleaned.startsWith("255") && cleaned.length >= 12) return "+" + cleaned;
+    if (cleaned.startsWith("0") && cleaned.length >= 10) return "+255" + cleaned.slice(1);
+    if (/^[67]\d{8}$/.test(cleaned)) return "+255" + cleaned;
+    return "+255" + cleaned;
   }
 
   function generateSlug(name: string): string {
