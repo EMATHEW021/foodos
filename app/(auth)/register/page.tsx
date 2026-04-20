@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -80,7 +81,6 @@ export default function RegisterPage() {
       return;
     }
 
-    // Create tenant + user via API route
     const res = await fetch("/api/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -106,14 +106,30 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
+    <div className="flex min-h-screen items-center justify-center bg-brand-cream px-4 py-8">
       <div className="w-full max-w-md">
+        {/* Back arrow */}
+        <Link
+          href="/"
+          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-brand-green"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Rudi Nyumbani
+        </Link>
+
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-blue-700">FoodOS</h1>
+          <div className="flex items-center justify-center gap-2">
+            <Image src="/images/logo.png" alt="FoodOS" width={40} height={40} />
+            <h1 className="text-3xl font-bold text-brand-charcoal">
+              Food<span className="text-brand-orange">OS</span>
+            </h1>
+          </div>
           <p className="mt-1 text-sm text-gray-500">Sajili Mgahawa Wako (Register Your Restaurant)</p>
         </div>
 
-        <div className="mt-8 rounded-2xl bg-white p-8 shadow-lg">
+        <div className="mt-8 rounded-2xl border border-gray-100 bg-white p-8 shadow-lg">
           {step === "form" ? (
             <form onSubmit={handleRegister} className="space-y-4">
               <div>
@@ -125,7 +141,7 @@ export default function RegisterPage() {
                   placeholder="e.g. Mama Salma Kitchen"
                   value={formData.restaurantName}
                   onChange={(e) => setFormData({ ...formData, restaurantName: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
                   required
                 />
               </div>
@@ -139,7 +155,7 @@ export default function RegisterPage() {
                   placeholder="e.g. Salma Hassan"
                   value={formData.ownerName}
                   onChange={(e) => setFormData({ ...formData, ownerName: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
                   required
                 />
               </div>
@@ -149,7 +165,7 @@ export default function RegisterPage() {
                   Namba ya Simu (Phone)
                 </label>
                 <div className="mt-1 flex items-center gap-2">
-                  <span className="rounded-lg bg-gray-100 px-3 py-2.5 text-sm text-gray-600">
+                  <span className="rounded-xl bg-gray-100 px-3 py-2.5 text-sm font-medium text-gray-600">
                     +255
                   </span>
                   <input
@@ -157,7 +173,7 @@ export default function RegisterPage() {
                     placeholder="0741234567"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
                     required
                   />
                 </div>
@@ -172,7 +188,7 @@ export default function RegisterPage() {
                   placeholder="salma@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
                 />
               </div>
 
@@ -183,7 +199,7 @@ export default function RegisterPage() {
                 <select
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="mt-1 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
                 >
                   <option>Dar es Salaam</option>
                   <option>Arusha</option>
@@ -201,7 +217,7 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 disabled={loading || !formData.restaurantName || !formData.ownerName || formData.phone.length < 9}
-                className="mt-2 w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+                className="mt-2 w-full rounded-xl bg-brand-green py-3 text-sm font-semibold text-white shadow-lg shadow-brand-green/25 transition hover:bg-brand-green-dark disabled:opacity-50"
               >
                 {loading ? "Inatuma..." : "Endelea (Continue)"}
               </button>
@@ -219,7 +235,7 @@ export default function RegisterPage() {
                 placeholder="123456"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
-                className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-center text-2xl tracking-[0.5em] focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="mt-2 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-center text-2xl tracking-[0.5em] transition focus:border-brand-green focus:bg-white focus:outline-none focus:ring-1 focus:ring-brand-green"
                 maxLength={6}
                 required
               />
@@ -229,7 +245,7 @@ export default function RegisterPage() {
               <button
                 type="submit"
                 disabled={loading || otp.length < 6}
-                className="mt-6 w-full rounded-xl bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+                className="mt-6 w-full rounded-xl bg-brand-green py-3 text-sm font-semibold text-white shadow-lg shadow-brand-green/25 transition hover:bg-brand-green-dark disabled:opacity-50"
               >
                 {loading ? "Inasajili..." : "Sajili Mgahawa (Register)"}
               </button>
@@ -241,7 +257,7 @@ export default function RegisterPage() {
                   setOtp("");
                   setError("");
                 }}
-                className="mt-3 w-full text-sm text-gray-500 hover:text-gray-700"
+                className="mt-3 w-full text-sm text-gray-500 hover:text-brand-green"
               >
                 Rudi nyuma (Go back)
               </button>
@@ -251,7 +267,7 @@ export default function RegisterPage() {
 
         <p className="mt-6 text-center text-sm text-gray-500">
           Una akaunti tayari?{" "}
-          <Link href="/login" className="font-medium text-blue-600 hover:text-blue-700">
+          <Link href="/login" className="font-medium text-brand-green hover:text-brand-green-dark">
             Ingia hapa (Login)
           </Link>
         </p>
