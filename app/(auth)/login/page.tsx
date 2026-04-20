@@ -17,12 +17,21 @@ export default function LoginPage() {
   const [otpCode, setOtpCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [resendTimer, setResendTimer] = useState(0);
   const [biometricSupported, setBiometricSupported] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [biometricSuccess, setBiometricSuccess] = useState(false);
   const [biometricError, setBiometricError] = useState("");
   const router = useRouter();
   const supabase = createClient();
+
+  useEffect(() => {
+    if (resendTimer <= 0) return;
+    const interval = setInterval(() => {
+      setResendTimer((t) => t - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [resendTimer]);
 
   useEffect(() => {
     async function checkBiometric() {
@@ -126,6 +135,7 @@ export default function LoginPage() {
     if (err) { setError(err.message); setLoading(false); return; }
 
     setStep("otp");
+    setResendTimer(60);
     setLoading(false);
   }
 
@@ -403,10 +413,13 @@ export default function LoginPage() {
 
               <button
                 type="button"
+                disabled={resendTimer > 0}
                 onClick={() => { handleForgotPassword({ preventDefault: () => {} } as React.FormEvent); }}
-                className="mt-3 w-full text-xs text-gray-400 transition hover:text-brand-green"
+                className="mt-3 w-full text-xs text-gray-400 transition hover:text-brand-green disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:text-gray-400"
               >
-                Hukupata msimbo? Tuma tena (Resend code)
+                {resendTimer > 0
+                  ? `Tuma tena baada ya 0:${resendTimer.toString().padStart(2, "0")} (Resend in 0:${resendTimer.toString().padStart(2, "0")})`
+                  : "Hukupata msimbo? Tuma tena (Resend code)"}
               </button>
 
               <button
