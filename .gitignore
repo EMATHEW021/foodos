@@ -45,3 +45,10 @@ yarn-error.log*
 next-env.d.ts
 
 /generated/prisma
+
+# cloudflare
+.open-next/
+wrangler.toml
+
+# supabase local
+supabase/.temp/
