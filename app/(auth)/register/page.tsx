@@ -191,7 +191,6 @@ export default function RegisterPage() {
       }).catch(() => {});
 
       setStep("success");
-      setTimeout(() => router.push("/dashboard"), 2000);
     } catch {
       setError("Usajili umeshindwa. Jaribu tena. (Registration failed.)");
     }
@@ -243,18 +242,26 @@ export default function RegisterPage() {
         <div className="mt-8 rounded-2xl border border-gray-100 bg-white/80 p-8 shadow-lg backdrop-blur-sm">
           {step === "success" ? (
             <div className="flex flex-col items-center gap-4 py-6">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-green/10">
-                <svg className="h-8 w-8 text-brand-green" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-orange/10">
+                <svg className="h-8 w-8 text-brand-orange" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-brand-charcoal">Hongera! (Congratulations!)</h2>
+              <h2 className="text-xl font-bold text-brand-charcoal">Ombi Limewasilishwa!</h2>
               <p className="text-center text-sm text-gray-500">
-                Mgahawa wako umesajiliwa. Unaelekezwa kwenye Dashboard...
+                Ombi lako la mgahawa limepokelewa. Tutakutumia barua pepe utakapoidhinishwa.
               </p>
               <p className="text-center text-xs text-gray-400">
-                Your restaurant is registered. Redirecting to Dashboard...
+                Your restaurant application has been submitted. You&apos;ll receive an email when approved.
               </p>
+              <div className="mt-2 rounded-xl bg-brand-green/5 px-4 py-3 text-center">
+                <p className="text-xs text-gray-500">
+                  Muda wa kawaida wa kuidhinishwa ni masaa 24.
+                </p>
+                <p className="text-[10px] text-gray-400">
+                  Typical approval time is within 24 hours.
+                </p>
+              </div>
             </div>
           ) : step === "form" ? (
             <form onSubmit={handleRegister} className="space-y-4">

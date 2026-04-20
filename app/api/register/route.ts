@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Restaurant name already taken" }, { status: 409 });
     }
 
-    // Create tenant + owner user in a transaction
+    // Create tenant (pending) + owner user (inactive) in a transaction
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await prisma.$transaction(async (tx: any) => {
       const tenant = await tx.tenant.create({
@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
           phone,
           email: email || null,
           city,
+          approvalStatus: "pending",
           trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
         },
       });
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest) {
           phone,
           email: email || null,
           role: "owner",
+          isActive: false, // Inactive until approved
         },
       });
 
@@ -48,6 +50,7 @@ export async function POST(request: NextRequest) {
       success: true,
       tenantId: result.tenant.id,
       userId: result.user.id,
+      status: "pending",
     });
   } catch (error) {
     console.error("Registration error:", error);

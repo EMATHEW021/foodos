@@ -83,6 +83,27 @@ export default function LoginPage() {
       return;
     }
 
+    // Role-based redirect
+    try {
+      const meRes = await fetch("/api/auth/me");
+      if (meRes.ok) {
+        const userData = await meRes.json();
+        if (userData.role === "super_admin") {
+          router.push("/admin");
+          return;
+        }
+        if (userData.role === "cashier") {
+          router.push("/pos");
+          return;
+        }
+        if (userData.tenant?.approvalStatus !== "approved") {
+          router.push("/pending");
+          return;
+        }
+      }
+    } catch {
+      // Fallback to dashboard
+    }
     router.push("/dashboard");
   }
 

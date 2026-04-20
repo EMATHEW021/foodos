@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 /* ──────────────────── NAV CONFIG ──────────────────── */
 
@@ -31,8 +32,8 @@ const navSections: NavSection[] = [
     title: "BIASHARA",
     items: [
       { label: "Migahawa", icon: "building", href: "/admin/restaurants" },
+      { label: "Maombi", icon: "inbox", href: "/admin/applications" },
       { label: "Watumiaji", icon: "users", href: "/admin/users" },
-      { label: "KYC", icon: "file", href: "/admin/kyc" },
     ],
   },
   {
@@ -67,6 +68,12 @@ function NavIcon({ name, className = "" }: { name: string; className?: string })
       return (
         <svg className={c} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+      );
+    case "inbox":
+      return (
+        <svg className={c} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
         </svg>
       );
     case "building":
@@ -127,9 +134,35 @@ function NavIcon({ name, className = "" }: { name: string; className?: string })
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [adminUser, setAdminUser] = useState<{ name: string; email: string } | null>(null);
+
+  // Fetch pending count and user info
+  useEffect(() => {
+    fetch("/api/admin/stats")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.pendingApprovals !== undefined) setPendingCount(data.pendingApprovals);
+      })
+      .catch(() => {});
+
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.name) setAdminUser({ name: data.name, email: data.email || "" });
+      })
+      .catch(() => {});
+  }, [pathname]);
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  }
 
   // Dark mode toggle
   useEffect(() => {
@@ -250,11 +283,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                       <span className="flex-1">{item.label}</span>
 
-                      {item.badge && (
+                      {item.badge ? (
                         <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#E8712B] px-1.5 text-[10px] font-bold text-white">
                           {item.badge}
                         </span>
-                      )}
+                      ) : item.href === "/admin/applications" && pendingCount > 0 ? (
+                        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#E8712B] px-1.5 text-[10px] font-bold text-white animate-pulse">
+                          {pendingCount}
+                        </span>
+                      ) : null}
                     </Link>
                   </li>
                 );
@@ -286,16 +323,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* User info */}
         <div className="flex items-center gap-3 px-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2D7A3A] text-xs font-bold text-white ring-2 ring-[#4ade80]/30">
-            EM
+            {adminUser?.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "SA"}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-white">Erick Mathew</p>
+            <p className="truncate text-sm font-semibold text-white">{adminUser?.name || "Super Admin"}</p>
             <p className="truncate text-[11px] text-gray-500">Super Admin</p>
           </div>
         </div>
 
         {/* Logout */}
-        <button className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] text-gray-400 transition hover:bg-red-500/10 hover:text-red-400">
+        <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] text-gray-400 transition hover:bg-red-500/10 hover:text-red-400">
           <svg className="h-[18px] w-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
