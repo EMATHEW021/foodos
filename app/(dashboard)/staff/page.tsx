@@ -1,862 +1,432 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-// ───── Types ─────
 interface StaffMember {
-  id: number;
+  id: string;
   name: string;
+  email: string | null;
   phone: string;
-  email: string;
-  role: "Mmiliki" | "Meneja" | "Karani";
-  roleEn: "Owner" | "Manager" | "Cashier";
-  pin: string;
-  status: "active" | "inactive";
-  dateJoined: string;
-  activity: {
-    ordersToday: number;
-    revenueToday: number;
-    lastActive: string;
-  };
+  role: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
-// ───── Sample Data ─────
-const initialStaff: StaffMember[] = [
-  {
-    id: 1,
-    name: "Erick Mathew",
-    phone: "+255 712 345 678",
-    email: "erick@foodos.co.tz",
-    role: "Mmiliki",
-    roleEn: "Owner",
-    pin: "0000",
-    status: "active",
-    dateJoined: "2025-01-15",
-    activity: { ordersToday: 0, revenueToday: 0, lastActive: "Sasa hivi" },
-  },
-  {
-    id: 2,
-    name: "Amina Hassan",
-    phone: "+255 754 123 456",
-    email: "amina@foodos.co.tz",
-    role: "Meneja",
-    roleEn: "Manager",
-    pin: "1234",
-    status: "active",
-    dateJoined: "2025-03-01",
-    activity: { ordersToday: 18, revenueToday: 245000, lastActive: "Dakika 5 zilizopita" },
-  },
-  {
-    id: 3,
-    name: "Joseph Mwanga",
-    phone: "+255 678 234 567",
-    email: "",
-    role: "Karani",
-    roleEn: "Cashier",
-    pin: "5678",
-    status: "active",
-    dateJoined: "2025-06-10",
-    activity: { ordersToday: 34, revenueToday: 420000, lastActive: "Dakika 2 zilizopita" },
-  },
-  {
-    id: 4,
-    name: "Fatma Bakari",
-    phone: "+255 712 876 543",
-    email: "fatma.b@gmail.com",
-    role: "Karani",
-    roleEn: "Cashier",
-    pin: "4321",
-    status: "active",
-    dateJoined: "2025-08-20",
-    activity: { ordersToday: 27, revenueToday: 310000, lastActive: "Dakika 15 zilizopita" },
-  },
-  {
-    id: 5,
-    name: "David Kimaro",
-    phone: "+255 655 432 109",
-    email: "",
-    role: "Karani",
-    roleEn: "Cashier",
-    pin: "8765",
-    status: "inactive",
-    dateJoined: "2025-09-05",
-    activity: { ordersToday: 0, revenueToday: 0, lastActive: "Siku 3 zilizopita" },
-  },
-];
-
-// ───── Helpers ─────
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+interface UserData {
+  role: string;
+  tenant: { kycStatus: string } | null;
 }
 
-function avatarColor(role: string): string {
-  if (role === "Mmiliki") return "bg-brand-orange text-white";
-  if (role === "Meneja") return "bg-brand-green text-white";
-  return "bg-brand-gold text-brand-charcoal";
-}
-
-function roleBadge(role: string): string {
-  if (role === "Mmiliki") return "bg-brand-orange/10 text-brand-orange";
-  if (role === "Meneja") return "bg-brand-green/10 text-brand-green";
-  return "bg-brand-gold/20 text-brand-charcoal";
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ago", "Sep", "Okt", "Nov", "Des"];
-  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-}
-
-// ───── Main Component ─────
 export default function StaffPage() {
-  const [staff, setStaff] = useState<StaffMember[]>(initialStaff);
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string>("Wote");
-  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const router = useRouter();
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [user, setUser] = useState<UserData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [deleting, setDeleting] = useState<string | null>(null);
 
-  // Modals
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
-  const [deletingStaff, setDeletingStaff] = useState<StaffMember | null>(null);
+  // Form fields
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("cashier");
 
-  // Add form
-  const [addForm, setAddForm] = useState({
-    name: "",
-    phone: "+255 ",
-    email: "",
-    role: "Karani" as "Meneja" | "Karani",
-    pin: "",
-  });
-  const [addErrors, setAddErrors] = useState<Record<string, string>>({});
+  async function fetchData() {
+    try {
+      const [meRes, staffRes] = await Promise.all([
+        fetch("/api/auth/me"),
+        fetch("/api/staff"),
+      ]);
+      const meData = await meRes.json();
+      const staffData = await staffRes.json();
+      setUser(meData);
+      setStaff(staffData.staff || []);
+    } catch {
+      // Silent
+    }
+    setLoading(false);
+  }
 
-  // Edit form
-  const [editForm, setEditForm] = useState({
-    name: "",
-    phone: "",
-    email: "",
-    role: "Karani" as "Meneja" | "Karani" | "Mmiliki",
-    pin: "",
-    status: "active" as "active" | "inactive",
-  });
-  const [editErrors, setEditErrors] = useState<Record<string, string>>({});
-  const [showResetPin, setShowResetPin] = useState(false);
-  const [newPin, setNewPin] = useState("");
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  // ── Stats ──
-  const totalStaff = staff.length;
-  const activeStaff = staff.filter((s) => s.status === "active").length;
-  const managers = staff.filter((s) => s.role === "Meneja" || s.role === "Mmiliki").length;
-  const cashiers = staff.filter((s) => s.role === "Karani").length;
+  async function handleAddStaff(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSuccessMsg("");
+    setSubmitting(true);
 
-  // ── Filtering ──
-  const roleFilterMap: Record<string, string | null> = {
-    Wote: null,
-    Mmiliki: "Mmiliki",
-    Meneja: "Meneja",
-    Karani: "Karani",
+    try {
+      const res = await fetch("/api/staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, phone, password, role }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Imeshindikana kuongeza mfanyakazi");
+        return;
+      }
+
+      setSuccessMsg(`${name} ameongezwa! Anaweza kuingia na email: ${email}`);
+      setName("");
+      setEmail("");
+      setPhone("");
+      setPassword("");
+      setRole("cashier");
+      setShowForm(false);
+      fetchData();
+    } catch {
+      setError("Tatizo la mtandao. Jaribu tena.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleToggleActive(id: string, isActive: boolean) {
+    try {
+      await fetch(`/api/staff/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !isActive }),
+      });
+      fetchData();
+    } catch {
+      // Silent
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Una uhakika unataka kumfuta mfanyakazi huyu?")) return;
+    setDeleting(id);
+    try {
+      const res = await fetch(`/api/staff/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setStaff((prev) => prev.filter((s) => s.id !== id));
+      }
+    } catch {
+      // Silent
+    }
+    setDeleting(null);
+  }
+
+  const kycApproved = user?.tenant?.kycStatus === "approved";
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-green border-t-transparent" />
+      </div>
+    );
+  }
+
+  // Block if KYC not approved
+  if (!kycApproved) {
+    return (
+      <div className="mx-auto max-w-lg py-12">
+        <div className="rounded-2xl border-2 border-brand-orange/50 bg-brand-orange/5 p-8 text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-orange/10">
+            <svg className="h-8 w-8 text-brand-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h1 className="mt-4 text-xl font-bold text-foreground">Timu Imefungwa</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Wasilisha KYC kwanza ili uweze kuunda timu yako.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Submit KYC first to unlock team creation.
+          </p>
+          <button
+            onClick={() => router.push("/kyc")}
+            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-brand-orange px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-orange/90"
+          >
+            Wasilisha KYC &rarr;
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const roleLabel = (r: string) => {
+    switch (r) {
+      case "owner": return "Mkurugenzi";
+      case "manager": return "Meneja wa Mauzo";
+      case "cashier": return "Karani wa POS";
+      default: return r;
+    }
   };
 
-  const filtered = staff.filter((s) => {
-    const matchesRole = roleFilterMap[roleFilter] === null || s.role === roleFilterMap[roleFilter];
-    const q = search.toLowerCase();
-    const matchesSearch = s.name.toLowerCase().includes(q) || s.phone.includes(q);
-    return matchesRole && matchesSearch;
-  });
+  const roleBadge = (r: string) => {
+    switch (r) {
+      case "owner": return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400";
+      case "manager": return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+      case "cashier": return "bg-[#2D7A3A]/10 text-[#2D7A3A]";
+      default: return "bg-gray-100 text-gray-600";
+    }
+  };
 
-  // ── Add Staff ──
-  function validateAdd() {
-    const errors: Record<string, string> = {};
-    if (!addForm.name.trim()) errors.name = "Jina linahitajika";
-    if (!addForm.phone.trim() || addForm.phone.trim().length < 14) errors.phone = "Nambari sahihi ya +255 inahitajika";
-    if (addForm.pin.length !== 4 || !/^\d{4}$/.test(addForm.pin)) errors.pin = "PIN lazima iwe tarakimu 4";
-    return errors;
-  }
-
-  function handleAdd() {
-    const errors = validateAdd();
-    setAddErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-
-    const newStaff: StaffMember = {
-      id: Date.now(),
-      name: addForm.name.trim(),
-      phone: addForm.phone.trim(),
-      email: addForm.email.trim(),
-      role: addForm.role,
-      roleEn: addForm.role === "Meneja" ? "Manager" : "Cashier",
-      pin: addForm.pin,
-      status: "active",
-      dateJoined: new Date().toISOString().slice(0, 10),
-      activity: { ordersToday: 0, revenueToday: 0, lastActive: "Hajaingia bado" },
-    };
-
-    setStaff([newStaff, ...staff]);
-    setAddForm({ name: "", phone: "+255 ", email: "", role: "Karani", pin: "" });
-    setAddErrors({});
-    setShowAddModal(false);
-  }
-
-  // ── Edit Staff ──
-  function openEditModal(s: StaffMember) {
-    setEditingStaff(s);
-    setEditForm({
-      name: s.name,
-      phone: s.phone,
-      email: s.email,
-      role: s.role,
-      pin: s.pin,
-      status: s.status,
-    });
-    setEditErrors({});
-    setShowResetPin(false);
-    setNewPin("");
-  }
-
-  function validateEdit() {
-    const errors: Record<string, string> = {};
-    if (!editForm.name.trim()) errors.name = "Jina linahitajika";
-    if (!editForm.phone.trim() || editForm.phone.trim().length < 14) errors.phone = "Nambari sahihi ya +255 inahitajika";
-    if (showResetPin && (newPin.length !== 4 || !/^\d{4}$/.test(newPin))) errors.pin = "PIN mpya lazima iwe tarakimu 4";
-    return errors;
-  }
-
-  function handleEdit() {
-    if (!editingStaff) return;
-    const errors = validateEdit();
-    setEditErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-
-    setStaff(
-      staff.map((s) =>
-        s.id === editingStaff.id
-          ? {
-              ...s,
-              name: editForm.name.trim(),
-              phone: editForm.phone.trim(),
-              email: editForm.email.trim(),
-              role: editForm.role as StaffMember["role"],
-              roleEn: editForm.role === "Mmiliki" ? "Owner" : editForm.role === "Meneja" ? "Manager" : "Cashier",
-              pin: showResetPin && newPin ? newPin : s.pin,
-              status: editForm.status,
-            }
-          : s
-      )
-    );
-    setEditingStaff(null);
-    setShowResetPin(false);
-    setNewPin("");
-  }
-
-  // ── Delete Staff ──
-  function handleDelete() {
-    if (!deletingStaff) return;
-    setStaff(staff.filter((s) => s.id !== deletingStaff.id));
-    setDeletingStaff(null);
-  }
-
-  // ───── Render ─────
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Wafanyakazi</h1>
-          <p className="text-xs text-muted-foreground">Staff Management — Simamia timu yako</p>
+          <h1 className="text-2xl font-bold text-foreground">Timu Yangu</h1>
+          <p className="text-sm text-muted-foreground">Unda na simamia wafanyakazi wako</p>
         </div>
         <button
-          onClick={() => {
-            setAddForm({ name: "", phone: "+255 ", email: "", role: "Karani", pin: "" });
-            setAddErrors({});
-            setShowAddModal(true);
-          }}
-          className="rounded-xl bg-brand-green px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-green-dark"
+          onClick={() => { setShowForm(!showForm); setError(""); setSuccessMsg(""); }}
+          className="flex items-center gap-2 rounded-xl bg-brand-green px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-green/90"
         >
-          + Ongeza Mfanyakazi
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          Ongeza Mfanyakazi
         </button>
       </div>
 
-      {/* ── Stats Cards ── */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl bg-card p-5 shadow-sm">
-          <p className="text-xs font-medium text-muted-foreground">Jumla ya Wafanyakazi</p>
-          <p className="text-[10px] text-muted-foreground">Total Staff</p>
-          <p className="mt-2 text-2xl font-bold text-foreground">{totalStaff}</p>
-        </div>
-        <div className="rounded-xl bg-card p-5 shadow-sm">
-          <p className="text-xs font-medium text-muted-foreground">Walio Hai</p>
-          <p className="text-[10px] text-muted-foreground">Active</p>
-          <p className="mt-2 text-2xl font-bold text-brand-green">{activeStaff}</p>
-        </div>
-        <div className="rounded-xl bg-card p-5 shadow-sm">
-          <p className="text-xs font-medium text-muted-foreground">Wasimamizi</p>
-          <p className="text-[10px] text-muted-foreground">Managers &amp; Owner</p>
-          <p className="mt-2 text-2xl font-bold text-brand-orange">{managers}</p>
-        </div>
-        <div className="rounded-xl bg-card p-5 shadow-sm">
-          <p className="text-xs font-medium text-muted-foreground">Wakusanyaji</p>
-          <p className="text-[10px] text-muted-foreground">Cashiers</p>
-          <p className="mt-2 text-2xl font-bold text-brand-gold">{cashiers}</p>
-        </div>
-      </div>
-
-      {/* ── Filters + Search ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* Role filter tabs */}
-        <div className="flex gap-2 overflow-x-auto">
-          {[
-            { key: "Wote", en: "All" },
-            { key: "Mmiliki", en: "Owner" },
-            { key: "Meneja", en: "Manager" },
-            { key: "Karani", en: "Cashier" },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setRoleFilter(tab.key)}
-              className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-medium transition ${
-                roleFilter === tab.key
-                  ? "bg-brand-green text-white"
-                  : "bg-card text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              {tab.key}{" "}
-              <span className={`${roleFilter === tab.key ? "text-white/70" : "text-muted-foreground"}`}>
-                ({tab.en})
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Search */}
-        <div className="relative">
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-            width="16"
-            height="16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="7" cy="7" r="5" />
-            <path d="M14 14l-3-3" />
+      {/* Success message */}
+      {successMsg && (
+        <div className="rounded-xl bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800 p-4 flex items-start gap-3">
+          <svg className="h-5 w-5 text-green-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tafuta jina au nambari..."
-            className="w-full rounded-lg border border-border bg-card py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground sm:w-64"
-          />
+          <div>
+            <p className="text-sm font-medium text-green-700 dark:text-green-400">{successMsg}</p>
+            <p className="text-xs text-muted-foreground mt-1">Staff member can now log in with their email and password</p>
+          </div>
+          <button onClick={() => setSuccessMsg("")} className="ml-auto text-green-600 hover:text-green-800">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-      </div>
+      )}
 
-      {/* ── Staff List ── */}
-      <div className="rounded-xl bg-card shadow-sm">
-        {/* Desktop header */}
-        <div className="hidden border-b border-border px-5 py-3 md:grid md:grid-cols-12 md:gap-4">
-          <p className="col-span-4 text-xs font-semibold text-muted-foreground">Mfanyakazi</p>
-          <p className="col-span-2 text-xs font-semibold text-muted-foreground">Simu</p>
-          <p className="col-span-2 text-xs font-semibold text-muted-foreground">Jukumu</p>
-          <p className="col-span-1 text-xs font-semibold text-muted-foreground">Hali</p>
-          <p className="col-span-2 text-xs font-semibold text-muted-foreground">Tarehe Kuanza</p>
-          <p className="col-span-1 text-xs font-semibold text-muted-foreground text-right">Vitendo</p>
+      {/* Add Staff Form */}
+      {showForm && (
+        <div className="rounded-2xl border-2 border-brand-green/30 bg-card p-6">
+          <h2 className="text-lg font-bold text-foreground mb-1">Ongeza Mfanyakazi Mpya</h2>
+          <p className="text-xs text-muted-foreground mb-5">
+            Unda akaunti - mfanyakazi ataingia na email na password
+          </p>
+
+          <form onSubmit={handleAddStaff} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Jina Kamili <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Amina Juma"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Simu
+                </label>
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="e.g. 0712345678"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="e.g. amina@example.com"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">
+                  Password <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="e.g. changeme123"
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-brand-green focus:outline-none focus:ring-1 focus:ring-brand-green"
+                  required
+                  minLength={6}
+                />
+                <p className="mt-1 text-[10px] text-muted-foreground">Mfanyakazi atabadilisha baadaye</p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Jukumu (Role) <span className="text-red-500">*</span>
+              </label>
+              <div className="flex gap-3">
+                <label className={`flex-1 cursor-pointer rounded-xl border-2 p-4 text-center transition ${
+                  role === "cashier" ? "border-brand-green bg-brand-green/5" : "border-border hover:border-muted-foreground"
+                }`}>
+                  <input
+                    type="radio"
+                    name="role"
+                    value="cashier"
+                    checked={role === "cashier"}
+                    onChange={() => setRole("cashier")}
+                    className="sr-only"
+                  />
+                  <svg className="mx-auto h-6 w-6 text-brand-green mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  <p className="text-sm font-semibold text-foreground">Karani wa POS</p>
+                  <p className="text-[10px] text-muted-foreground">Cashier</p>
+                </label>
+                <label className={`flex-1 cursor-pointer rounded-xl border-2 p-4 text-center transition ${
+                  role === "manager" ? "border-blue-500 bg-blue-50 dark:bg-blue-900/10" : "border-border hover:border-muted-foreground"
+                }`}>
+                  <input
+                    type="radio"
+                    name="role"
+                    value="manager"
+                    checked={role === "manager"}
+                    onChange={() => setRole("manager")}
+                    className="sr-only"
+                  />
+                  <svg className="mx-auto h-6 w-6 text-blue-500 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  <p className="text-sm font-semibold text-foreground">Meneja wa Mauzo</p>
+                  <p className="text-[10px] text-muted-foreground">Sales Manager</p>
+                </label>
+              </div>
+            </div>
+
+            {error && (
+              <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3">
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="rounded-xl border border-border px-6 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted"
+              >
+                Ghairi
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="flex items-center gap-2 rounded-xl bg-brand-green px-6 py-2.5 text-sm font-bold text-white transition hover:bg-brand-green/90 disabled:opacity-50"
+              >
+                {submitting ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Inaunda...
+                  </>
+                ) : (
+                  "Unda Akaunti"
+                )}
+              </button>
+            </div>
+          </form>
         </div>
+      )}
 
-        {filtered.length === 0 ? (
-          <div className="p-12 text-center">
-            <p className="text-3xl">👤</p>
-            <p className="mt-3 text-sm font-medium text-foreground">Hakuna mfanyakazi aliyepatikana</p>
-            <p className="text-xs text-muted-foreground">No staff found matching your filters</p>
+      {/* Staff list */}
+      <div className="space-y-3">
+        {staff.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-16">
+            <svg className="h-16 w-16 text-muted-foreground/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <p className="text-sm font-medium text-muted-foreground">Bado huna wafanyakazi</p>
+            <p className="text-xs text-muted-foreground">Bonyeza &quot;Ongeza Mfanyakazi&quot; kuongeza wa kwanza</p>
           </div>
         ) : (
-          <div className="divide-y divide-border">
-            {filtered.map((s) => (
-              <div key={s.id}>
-                {/* Main Row */}
-                <div className="flex flex-col gap-3 px-5 py-4 md:grid md:grid-cols-12 md:items-center md:gap-4">
-                  {/* Avatar + Name */}
-                  <div className="col-span-4 flex items-center gap-3">
-                    <div
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarColor(
-                        s.role
-                      )}`}
-                    >
-                      {getInitials(s.name)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-foreground">{s.name}</p>
-                      {s.email && (
-                        <p className="truncate text-[10px] text-muted-foreground">{s.email}</p>
+          staff.map((s) => (
+            <div
+              key={s.id}
+              className={`rounded-xl border bg-card p-4 transition hover:shadow-sm ${
+                !s.isActive ? "opacity-60 border-border" : "border-border"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${
+                    s.role === "owner" ? "bg-purple-500" : s.role === "manager" ? "bg-blue-500" : "bg-brand-green"
+                  }`}>
+                    {s.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">{s.name}</p>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${roleBadge(s.role)}`}>
+                        {roleLabel(s.role)}
+                      </span>
+                      {!s.isActive && (
+                        <span className="rounded-full bg-red-100 dark:bg-red-900/30 px-2 py-0.5 text-[10px] font-semibold text-red-600 dark:text-red-400">
+                          Amezimwa
+                        </span>
                       )}
                     </div>
+                    <div className="flex items-center gap-3 mt-1">
+                      {s.email && <p className="text-xs text-muted-foreground">{s.email}</p>}
+                      {s.phone && <p className="text-xs text-muted-foreground">{s.phone}</p>}
+                    </div>
                   </div>
+                </div>
 
-                  {/* Phone */}
-                  <div className="col-span-2">
-                    <p className="text-xs text-muted-foreground md:hidden">Simu:</p>
-                    <p className="text-sm text-foreground">{s.phone}</p>
-                  </div>
-
-                  {/* Role */}
-                  <div className="col-span-2">
-                    <span
-                      className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-semibold ${roleBadge(
-                        s.role
-                      )}`}
-                    >
-                      {s.role} ({s.roleEn})
-                    </span>
-                  </div>
-
-                  {/* Status */}
-                  <div className="col-span-1">
-                    <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                        s.status === "active"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-500"
+                {s.role !== "owner" && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleToggleActive(s.id, s.isActive)}
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                        s.isActive
+                          ? "border border-yellow-200 dark:border-yellow-800 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
+                          : "border border-green-200 dark:border-green-800 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
                       }`}
                     >
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${
-                          s.status === "active" ? "bg-green-500" : "bg-gray-400"
-                        }`}
-                      />
-                      {s.status === "active" ? "Hai" : "Simama"}
-                    </span>
-                  </div>
-
-                  {/* Date Joined */}
-                  <div className="col-span-2">
-                    <p className="text-xs text-muted-foreground md:hidden">Kuanza:</p>
-                    <p className="text-sm text-foreground">{formatDate(s.dateJoined)}</p>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="col-span-1 flex items-center justify-end gap-1">
-                    {/* Expand activity */}
-                    <button
-                      onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
-                      title="Shughuli"
-                      className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                    >
-                      <svg
-                        width="16"
-                        height="16"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        className={`transition-transform ${expandedId === s.id ? "rotate-180" : ""}`}
-                      >
-                        <path d="M4 6l4 4 4-4" />
-                      </svg>
+                      {s.isActive ? "Zima" : "Washa"}
                     </button>
-
-                    {/* Edit */}
                     <button
-                      onClick={() => openEditModal(s)}
-                      title="Hariri"
-                      className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                      onClick={() => handleDelete(s.id)}
+                      disabled={deleting === s.id}
+                      className="rounded-lg border border-red-200 dark:border-red-800 px-3 py-1.5 text-xs font-medium text-red-500 transition hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
                     >
-                      <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M11 2l3 3L5 14H2v-3L11 2z" />
-                      </svg>
+                      {deleting === s.id ? (
+                        <div className="h-3 w-3 animate-spin rounded-full border-2 border-red-500 border-t-transparent" />
+                      ) : (
+                        "Futa"
+                      )}
                     </button>
-
-                    {/* Delete */}
-                    {s.role !== "Mmiliki" && (
-                      <button
-                        onClick={() => setDeletingStaff(s)}
-                        title="Futa"
-                        className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-red-50 hover:text-red-500"
-                      >
-                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M3 6h10M5 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6h12z" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* ── Activity Summary (expandable) ── */}
-                {expandedId === s.id && (
-                  <div className="border-t border-dashed border-border bg-muted/30 px-5 py-4">
-                    <p className="mb-3 text-xs font-semibold text-muted-foreground">
-                      Muhtasari wa Shughuli — Activity Summary
-                    </p>
-                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
-                      <div className="rounded-lg bg-card p-3 shadow-sm">
-                        <p className="text-[10px] text-muted-foreground">Oda Leo / Orders Today</p>
-                        <p className="mt-1 text-lg font-bold text-foreground">{s.activity.ordersToday}</p>
-                      </div>
-                      <div className="rounded-lg bg-card p-3 shadow-sm">
-                        <p className="text-[10px] text-muted-foreground">Mapato / Revenue</p>
-                        <p className="mt-1 text-lg font-bold text-brand-green">
-                          TZS {s.activity.revenueToday.toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="rounded-lg bg-card p-3 shadow-sm">
-                        <p className="text-[10px] text-muted-foreground">Mwisho Kuonekana / Last Active</p>
-                        <p className="mt-1 text-sm font-medium text-foreground">{s.activity.lastActive}</p>
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>
-            ))}
-          </div>
+            </div>
+          ))
         )}
       </div>
-
-      {/* ══════════════════════════════════════════
-          ADD STAFF MODAL
-         ══════════════════════════════════════════ */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-foreground">Ongeza Mfanyakazi Mpya</h3>
-            <p className="text-xs text-muted-foreground">Add New Staff Member</p>
-
-            <div className="mt-5 space-y-4">
-              {/* Name */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  Jina Kamili (Full Name) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={addForm.name}
-                  onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
-                  placeholder="Jina la mfanyakazi"
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground"
-                />
-                {addErrors.name && <p className="mt-1 text-[11px] text-red-500">{addErrors.name}</p>}
-              </div>
-
-              {/* Phone */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  Nambari ya Simu (Phone) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  value={addForm.phone}
-                  onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })}
-                  placeholder="+255 7XX XXX XXX"
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground"
-                />
-                {addErrors.phone && <p className="mt-1 text-[11px] text-red-500">{addErrors.phone}</p>}
-              </div>
-
-              {/* Email */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  Barua Pepe (Email) <span className="text-muted-foreground/60">— si lazima</span>
-                </label>
-                <input
-                  type="email"
-                  value={addForm.email}
-                  onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
-                  placeholder="email@example.com"
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground"
-                />
-              </div>
-
-              {/* Role */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Jukumu (Role)</label>
-                <select
-                  value={addForm.role}
-                  onChange={(e) =>
-                    setAddForm({ ...addForm, role: e.target.value as "Meneja" | "Karani" })
-                  }
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground"
-                >
-                  <option value="Meneja">Meneja (Manager)</option>
-                  <option value="Karani">Karani (Cashier)</option>
-                </select>
-              </div>
-
-              {/* PIN */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  PIN ya Kuingia (Login PIN) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="password"
-                  maxLength={4}
-                  value={addForm.pin}
-                  onChange={(e) => {
-                    const v = e.target.value.replace(/\D/g, "").slice(0, 4);
-                    setAddForm({ ...addForm, pin: v });
-                  }}
-                  placeholder="Tarakimu 4 (e.g. 1234)"
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm tracking-[0.3em] text-foreground placeholder:tracking-normal placeholder:text-muted-foreground"
-                />
-                {addErrors.pin && <p className="mt-1 text-[11px] text-red-500">{addErrors.pin}</p>}
-                <p className="mt-1 text-[10px] text-muted-foreground">
-                  PIN hii itatumiwa na mfanyakazi kuingia kwenye mfumo
-                </p>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
-              >
-                Ghairi
-              </button>
-              <button
-                onClick={handleAdd}
-                className="flex-1 rounded-xl bg-brand-green py-2.5 text-sm font-medium text-white transition hover:bg-brand-green-dark"
-              >
-                Ongeza Mfanyakazi
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════════
-          EDIT STAFF MODAL
-         ══════════════════════════════════════════ */}
-      {editingStaff && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-card p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-foreground">Hariri Mfanyakazi</h3>
-            <p className="text-xs text-muted-foreground">Edit Staff Member — {editingStaff.name}</p>
-
-            <div className="mt-5 space-y-4">
-              {/* Name */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  Jina Kamili (Full Name) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={editForm.name}
-                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground"
-                />
-                {editErrors.name && <p className="mt-1 text-[11px] text-red-500">{editErrors.name}</p>}
-              </div>
-
-              {/* Phone */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  Nambari ya Simu (Phone) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  value={editForm.phone}
-                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground"
-                />
-                {editErrors.phone && <p className="mt-1 text-[11px] text-red-500">{editErrors.phone}</p>}
-              </div>
-
-              {/* Email */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">
-                  Barua Pepe (Email) <span className="text-muted-foreground/60">— si lazima</span>
-                </label>
-                <input
-                  type="email"
-                  value={editForm.email}
-                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground"
-                />
-              </div>
-
-              {/* Role */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Jukumu (Role)</label>
-                {editingStaff.role === "Mmiliki" ? (
-                  <div className="mt-1 rounded-lg border border-border bg-muted/50 px-3 py-2.5 text-sm text-muted-foreground">
-                    Mmiliki (Owner) — haibadilishiki
-                  </div>
-                ) : (
-                  <select
-                    value={editForm.role}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, role: e.target.value as "Meneja" | "Karani" })
-                    }
-                    className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground"
-                  >
-                    <option value="Meneja">Meneja (Manager)</option>
-                    <option value="Karani">Karani (Cashier)</option>
-                  </select>
-                )}
-              </div>
-
-              {/* Status Toggle */}
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Hali (Status)</label>
-                <div className="mt-2 flex gap-2">
-                  <button
-                    onClick={() => setEditForm({ ...editForm, status: "active" })}
-                    className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
-                      editForm.status === "active"
-                        ? "bg-green-100 text-green-700 ring-2 ring-green-400"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    Hai (Active)
-                  </button>
-                  <button
-                    onClick={() => setEditForm({ ...editForm, status: "inactive" })}
-                    className={`flex-1 rounded-lg py-2 text-sm font-medium transition ${
-                      editForm.status === "inactive"
-                        ? "bg-red-100 text-red-600 ring-2 ring-red-400"
-                        : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    Simama (Inactive)
-                  </button>
-                </div>
-              </div>
-
-              {/* Reset PIN */}
-              <div className="rounded-lg border border-dashed border-border p-3">
-                {!showResetPin ? (
-                  <button
-                    onClick={() => setShowResetPin(true)}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-muted px-3 py-2 text-xs font-medium text-foreground transition hover:bg-border"
-                  >
-                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M7 1v4M7 9v4M1 7h4M9 7h4" />
-                    </svg>
-                    Weka Upya PIN — Reset PIN
-                  </button>
-                ) : (
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground">
-                      PIN Mpya (New PIN) <span className="text-red-500">*</span>
-                    </label>
-                    <div className="mt-1 flex gap-2">
-                      <input
-                        type="password"
-                        maxLength={4}
-                        value={newPin}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/\D/g, "").slice(0, 4);
-                          setNewPin(v);
-                        }}
-                        placeholder="Tarakimu 4"
-                        className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm tracking-[0.3em] text-foreground placeholder:tracking-normal placeholder:text-muted-foreground"
-                      />
-                      <button
-                        onClick={() => {
-                          setShowResetPin(false);
-                          setNewPin("");
-                        }}
-                        className="rounded-lg px-3 py-2 text-xs text-muted-foreground hover:text-foreground"
-                      >
-                        Ghairi
-                      </button>
-                    </div>
-                    {editErrors.pin && <p className="mt-1 text-[11px] text-red-500">{editErrors.pin}</p>}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={() => {
-                  setEditingStaff(null);
-                  setShowResetPin(false);
-                  setNewPin("");
-                }}
-                className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
-              >
-                Ghairi
-              </button>
-              <button
-                onClick={handleEdit}
-                className="flex-1 rounded-xl bg-brand-green py-2.5 text-sm font-medium text-white transition hover:bg-brand-green-dark"
-              >
-                Hifadhi Mabadiliko
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ══════════════════════════════════════════
-          DELETE CONFIRMATION MODAL
-         ══════════════════════════════════════════ */}
-      {deletingStaff && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
-            {/* Warning Icon */}
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
-              <svg width="28" height="28" fill="none" stroke="#DC2626" strokeWidth="2">
-                <path d="M14 9v6M14 19h.01M5.07 22h17.86a2 2 0 0 0 1.73-3L15.73 4a2 2 0 0 0-3.46 0L3.34 19a2 2 0 0 0 1.73 3z" />
-              </svg>
-            </div>
-
-            <h3 className="mt-4 text-center text-lg font-bold text-foreground">Futa Mfanyakazi?</h3>
-            <p className="mt-1 text-center text-xs text-muted-foreground">Delete Staff Member?</p>
-
-            <div className="mt-4 rounded-lg bg-red-50 p-3">
-              <p className="text-center text-sm font-medium text-red-700">{deletingStaff.name}</p>
-              <p className="mt-1 text-center text-[11px] text-red-600">
-                {deletingStaff.role} ({deletingStaff.roleEn})
-              </p>
-            </div>
-
-            <div className="mt-4 space-y-2 rounded-lg border border-border bg-muted/40 p-3">
-              <p className="text-xs font-semibold text-foreground">
-                Onyo — Hatua hii itasababisha:
-              </p>
-              <ul className="space-y-1 text-[11px] text-muted-foreground">
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 text-red-500">&#x2022;</span>
-                  Taarifa zote za mfanyakazi huyu zitafutwa kabisa
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 text-red-500">&#x2022;</span>
-                  Rekodi za oda na shughuli zake zitabaki kwenye ripoti lakini hazitahusishwa na akaunti
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 text-red-500">&#x2022;</span>
-                  PIN ya kuingia itafutiliwa mbali — hawezi kuingia tena
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="mt-0.5 text-red-500">&#x2022;</span>
-                  Hatua hii haiwezi kutendwa upya (irreversible)
-                </li>
-              </ul>
-              <p className="mt-1 text-[10px] text-muted-foreground italic">
-                Badala ya kufuta, fikiria kumsimamisha (deactivate) mfanyakazi.
-              </p>
-            </div>
-
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={() => setDeletingStaff(null)}
-                className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-foreground transition hover:bg-muted"
-              >
-                Ghairi
-              </button>
-              <button
-                onClick={handleDelete}
-                className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-medium text-white transition hover:bg-red-700"
-              >
-                Ndio, Futa
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,423 +1,416 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-/* ──────────────────── DATA ──────────────────── */
+interface RevenueData {
+  period: string;
+  totals: { revenue: number; cogs: number; expenses: number; netProfit: number };
+  growthPct: number;
+  dailyTimeSeries: { date: string; revenue: number; cogs: number; expenses: number; profit: number }[];
+  byPaymentMethod: { method: string; amount: number; count: number }[];
+  byCity: { city: string; amount: number }[];
+  recentTransactions: {
+    id: string;
+    orderNumber: number;
+    restaurant: string;
+    cashier: string;
+    amount: number;
+    paymentMethod: string | null;
+    paymentStatus: string;
+    status: string;
+    createdAt: string;
+  }[];
+}
 
-const monthlyRevenue = [
-  { month: "Jan", mrr: 650, arr: 7800, net: 614 },
-  { month: "Feb", mrr: 670, arr: 8040, net: 633 },
-  { month: "Mar", mrr: 690, arr: 8280, net: 652 },
-  { month: "Apr", mrr: 720, arr: 8640, net: 680 },
-  { month: "May", mrr: 758, arr: 9096, net: 716 },
-  { month: "Jun", mrr: 795, arr: 9540, net: 751 },
-  { month: "Jul", mrr: 830, arr: 9960, net: 784 },
-  { month: "Aug", mrr: 870, arr: 10440, net: 822 },
-  { month: "Sep", mrr: 915, arr: 10980, net: 864 },
-  { month: "Oct", mrr: 950, arr: 11400, net: 897 },
-  { month: "Nov", mrr: 988, arr: 11856, net: 933 },
-  { month: "Dec", mrr: 1028, arr: 12336, net: 971 },
-];
-
-const planTiers = [
-  { name: "Bure (Free)", amount: 0, color: "#9CA3AF", pct: 0 },
-  { name: "Mwanzo (Starter)", amount: 435000, color: "#2D7A3A", pct: 42 },
-  { name: "Kitaalamu (Professional)", amount: 295000, color: "#3B82F6", pct: 29 },
-  { name: "Biashara (Business)", amount: 298000, color: "#7C3AED", pct: 29 },
-];
-
-const regions = [
-  { name: "Dar es Salaam", amount: 680000, pct: 66 },
-  { name: "Arusha", amount: 148000, pct: 14 },
-  { name: "Mwanza", amount: 87000, pct: 8 },
-  { name: "Zanzibar", amount: 58000, pct: 6 },
-  { name: "Nyinginezo (Other)", amount: 55000, pct: 5 },
-];
-
-const paymentCollection = [
-  { restaurant: "Mama Lishe Kitchen", due: 45000, status: "Paid" as const, method: "M-Pesa", date: "2026-04-18" },
-  { restaurant: "Dar Biriyani House", due: 65000, status: "Paid" as const, method: "Tigo Pesa", date: "2026-04-17" },
-  { restaurant: "Chapati House", due: 35000, status: "Overdue" as const, method: "-", date: "2026-04-10" },
-  { restaurant: "Zanzibar Spice", due: 45000, status: "Paid" as const, method: "M-Pesa", date: "2026-04-16" },
-  { restaurant: "Kilimanjaro Bites", due: 65000, status: "Pending" as const, method: "-", date: "2026-04-19" },
-  { restaurant: "Arusha Grills", due: 45000, status: "Paid" as const, method: "Benki", date: "2026-04-15" },
-  { restaurant: "Mwanza Fish Point", due: 35000, status: "Overdue" as const, method: "-", date: "2026-04-05" },
-  { restaurant: "Dodoma Meals", due: 45000, status: "Paid" as const, method: "M-Pesa", date: "2026-04-14" },
-  { restaurant: "Pwani Delights", due: 65000, status: "Pending" as const, method: "-", date: "2026-04-20" },
-  { restaurant: "Tanga Flavours", due: 35000, status: "Paid" as const, method: "Airtel Money", date: "2026-04-13" },
-];
-
-const transactions = [
-  { date: "2026-04-19 14:22", restaurant: "Mama Lishe Kitchen", amount: 45000, type: "Subscription" as const, method: "M-Pesa", status: "Success" as const },
-  { date: "2026-04-19 11:05", restaurant: "Kilimanjaro Bites", amount: 65000, type: "Upgrade" as const, method: "Tigo Pesa", status: "Pending" as const },
-  { date: "2026-04-18 16:30", restaurant: "Dar Biriyani House", amount: 65000, type: "Subscription" as const, method: "Tigo Pesa", status: "Success" as const },
-  { date: "2026-04-18 09:45", restaurant: "Zanzibar Spice", amount: 45000, type: "Subscription" as const, method: "M-Pesa", status: "Success" as const },
-  { date: "2026-04-17 15:20", restaurant: "Arusha Grills", amount: 45000, type: "Subscription" as const, method: "Benki", status: "Success" as const },
-  { date: "2026-04-17 10:12", restaurant: "Tanga Flavours", amount: 35000, type: "Subscription" as const, method: "Airtel Money", status: "Success" as const },
-  { date: "2026-04-16 14:55", restaurant: "Dodoma Meals", amount: 45000, type: "Subscription" as const, method: "M-Pesa", status: "Success" as const },
-  { date: "2026-04-16 08:30", restaurant: "Pwani Delights", amount: 20000, type: "Refund" as const, method: "M-Pesa", status: "Success" as const },
-  { date: "2026-04-15 17:40", restaurant: "Mama Lishe Kitchen", amount: 20000, type: "Upgrade" as const, method: "M-Pesa", status: "Success" as const },
-  { date: "2026-04-15 12:10", restaurant: "Dar Biriyani House", amount: 65000, type: "Subscription" as const, method: "Tigo Pesa", status: "Failed" as const },
-  { date: "2026-04-14 16:22", restaurant: "Zanzibar Spice", amount: 45000, type: "Subscription" as const, method: "M-Pesa", status: "Success" as const },
-  { date: "2026-04-14 10:08", restaurant: "Kilimanjaro Bites", amount: 30000, type: "Upgrade" as const, method: "M-Pesa", status: "Success" as const },
-  { date: "2026-04-13 15:30", restaurant: "Mwanza Fish Point", amount: 35000, type: "Subscription" as const, method: "M-Pesa", status: "Failed" as const },
-  { date: "2026-04-13 09:15", restaurant: "Arusha Grills", amount: 45000, type: "Subscription" as const, method: "Benki", status: "Success" as const },
-  { date: "2026-04-12 14:50", restaurant: "Chapati House", amount: 35000, type: "Subscription" as const, method: "M-Pesa", status: "Failed" as const },
-  { date: "2026-04-12 08:20", restaurant: "Tanga Flavours", amount: 35000, type: "Subscription" as const, method: "Airtel Money", status: "Success" as const },
-  { date: "2026-04-11 16:40", restaurant: "Dodoma Meals", amount: 45000, type: "Subscription" as const, method: "M-Pesa", status: "Success" as const },
-  { date: "2026-04-11 11:05", restaurant: "Pwani Delights", amount: 65000, type: "Subscription" as const, method: "Tigo Pesa", status: "Success" as const },
-  { date: "2026-04-10 15:30", restaurant: "Mama Lishe Kitchen", amount: 15000, type: "Refund" as const, method: "M-Pesa", status: "Success" as const },
-  { date: "2026-04-10 09:45", restaurant: "Dar Biriyani House", amount: 65000, type: "Subscription" as const, method: "Tigo Pesa", status: "Success" as const },
-];
-
-/* ──────────────────── HELPERS ──────────────────── */
+interface Stats {
+  mrr: number;
+  arr: number;
+  revenueThisMonth: number;
+  netProfitThisMonth: number;
+  approvedRestaurants: number;
+}
 
 function fmt(n: number) {
   return n.toLocaleString("en-TZ");
 }
 
-function statusBadge(status: string) {
-  const map: Record<string, string> = {
-    Paid: "bg-green-100 text-green-700",
-    Overdue: "bg-red-100 text-red-700",
-    Pending: "bg-yellow-100 text-yellow-700",
-    Success: "bg-green-100 text-green-700",
-    Failed: "bg-red-100 text-red-700",
-  };
-  return map[status] || "bg-gray-100 text-gray-700";
+function fmtDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("sw-TZ", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-function typeBadge(type: string) {
-  const map: Record<string, string> = {
-    Subscription: "bg-blue-100 text-blue-700",
-    Upgrade: "bg-purple-100 text-purple-700",
-    Refund: "bg-orange-100 text-orange-700",
-  };
-  return map[type] || "bg-gray-100 text-gray-700";
+function shortDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("sw-TZ", { day: "2-digit", month: "short" });
 }
 
-/* ──────────────────── COMPONENT ──────────────────── */
+const PAYMENT_LABELS: Record<string, string> = {
+  cash: "Taslimu",
+  mpesa: "M-Pesa",
+  tigopesa: "Tigo Pesa",
+  airtelmoney: "Airtel Money",
+  halopesa: "Halo Pesa",
+  card: "Kadi",
+  split: "Mchanganyiko",
+};
 
-export default function PlatformRevenuePage() {
-  const [chartMode, setChartMode] = useState<"mrr" | "arr" | "net">("mrr");
-  const [collectionFilter, setCollectionFilter] = useState<"All" | "Paid" | "Overdue" | "Pending">("All");
+const PAYMENT_COLORS: Record<string, string> = {
+  cash: "#2D7A3A",
+  mpesa: "#E8712B",
+  tigopesa: "#3B82F6",
+  airtelmoney: "#EF4444",
+  halopesa: "#7C3AED",
+  card: "#F59E0B",
+  split: "#6B7280",
+};
 
-  const filteredPayments = collectionFilter === "All"
-    ? paymentCollection
-    : paymentCollection.filter((p) => p.status === collectionFilter);
+const STATUS_BADGE: Record<string, string> = {
+  paid: "bg-green-100 text-green-700",
+  pending: "bg-yellow-100 text-yellow-700",
+  failed: "bg-red-100 text-red-700",
+  refunded: "bg-gray-100 text-gray-600",
+};
 
-  /* chart scaling */
-  const chartKey = chartMode;
-  const maxVal = Math.max(...monthlyRevenue.map((m) => m[chartKey]));
+const STATUS_LABEL: Record<string, string> = {
+  paid: "Limelipwa",
+  pending: "Linasubiri",
+  failed: "Limeshindwa",
+  refunded: "Limerudishwa",
+};
+
+type Period = "week" | "month" | "quarter" | "year";
+
+export default function RevenuePage() {
+  const [period, setPeriod] = useState<Period>("month");
+  const [data, setData] = useState<RevenueData | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      fetch(`/api/admin/revenue?period=${period}`).then((r) => r.json()),
+      fetch("/api/admin/stats").then((r) => r.json()),
+    ])
+      .then(([revenueData, statsData]) => {
+        setData(revenueData);
+        setStats(statsData);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [period]);
+
+  function exportCSV() {
+    if (!data) return;
+    const rows = [["Tarehe", "Mgahawa", "Kiasi (TZS)", "Njia ya Malipo", "Hali"]];
+    for (const t of data.recentTransactions) {
+      rows.push([
+        new Date(t.createdAt).toISOString(),
+        t.restaurant,
+        String(t.amount),
+        t.paymentMethod || "-",
+        t.paymentStatus,
+      ]);
+    }
+    const csv = rows.map((r) => r.join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `mapato-${period}-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#2D7A3A] border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Inapakia...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalRevenue = data?.totals.revenue || 0;
+  const maxCityAmount = Math.max(...(data?.byCity || []).map((c) => c.amount), 1);
+  const maxBarVal = Math.max(...(data?.dailyTimeSeries || []).map((d) => d.revenue), 1);
+  const activeTenantCount = stats?.approvedRestaurants || 1;
+  const profitMargin = totalRevenue > 0 ? Math.round((data?.totals.netProfit || 0) / totalRevenue * 100) : 0;
 
   return (
-    <div className="space-y-8">
-      {/* ── Header ── */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Mapato ya Jukwaa</h1>
-        <p className="text-sm text-muted-foreground">Platform Revenue — SaaS subscription income overview</p>
+    <div className="space-y-6">
+      {/* Header + Period Filter */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Mapato ya Jukwaa</h1>
+          <p className="text-sm text-muted-foreground">Platform Revenue — Real-time financial overview</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1 rounded-lg bg-muted p-1">
+            {([
+              { value: "week" as Period, label: "Wiki Hii" },
+              { value: "month" as Period, label: "Mwezi Huu" },
+              { value: "quarter" as Period, label: "Robo Mwaka" },
+              { value: "year" as Period, label: "Mwaka" },
+            ]).map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                  period === p.value
+                    ? "bg-[#2D7A3A] text-white shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={exportCSV}
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted"
+          >
+            <span className="flex items-center gap-1.5">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export CSV
+            </span>
+          </button>
+        </div>
       </div>
 
-      {/* ── KPI Cards ── */}
+      {/* KPI Cards with comparative context */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* MRR */}
         <div className="rounded-xl bg-card p-5 shadow-sm border border-green-200">
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-muted-foreground">MRR — Mapato ya Mwezi</p>
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-100 text-sm">
-              <svg className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-            </span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2D7A3A]/10">
+              <svg className="h-4 w-4 text-[#2D7A3A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
           </div>
-          <p className="mt-2 text-2xl font-bold text-[#2D7A3A]">TZS {fmt(1028000)}</p>
-          <p className="mt-1 text-xs text-green-600 font-medium">+18% kuliko mwezi uliopita</p>
+          <p className="mt-2 text-2xl font-bold text-[#2D7A3A]">TZS {fmt(stats?.mrr || 0)}</p>
+          <p className="mt-1 text-[10px] text-muted-foreground">{activeTenantCount} migahawa hai</p>
         </div>
-
-        {/* ARR */}
         <div className="rounded-xl bg-card p-5 shadow-sm border border-green-200">
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-muted-foreground">ARR — Mapato ya Mwaka</p>
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-100 text-sm">
-              <svg className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0h6m-6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m6 0v-4a2 2 0 00-2-2h-2a2 2 0 00-2 2v4" /></svg>
-            </span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10">
+              <svg className="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
           </div>
-          <p className="mt-2 text-2xl font-bold text-[#2D7A3A]">TZS {fmt(12336000)}</p>
-          <p className="mt-1 text-xs text-green-600 font-medium">Annual Recurring Revenue</p>
+          <p className="mt-2 text-2xl font-bold text-blue-600">TZS {fmt(stats?.arr || 0)}</p>
+          <p className="mt-1 text-[10px] text-muted-foreground">Annual projection</p>
         </div>
-
-        {/* ARPU */}
         <div className="rounded-xl bg-card p-5 shadow-sm border border-blue-200">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-muted-foreground">ARPU — Wastani kwa Mgahawa</p>
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-sm">
-              <svg className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-            </span>
+            <p className="text-xs font-medium text-muted-foreground">Mapato Halisi</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
+              <svg className="h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+            </div>
           </div>
-          <p className="mt-2 text-2xl font-bold text-blue-600">TZS {fmt(46727)}</p>
-          <p className="mt-1 text-xs text-blue-500 font-medium">Average Revenue Per Restaurant</p>
+          <p className="mt-2 text-2xl font-bold text-emerald-600">TZS {fmt(totalRevenue)}</p>
+          <p className="mt-1 text-xs font-medium">
+            {data?.growthPct !== undefined && data.growthPct !== 0 ? (
+              <span className={`flex items-center gap-1 ${data.growthPct > 0 ? "text-green-600" : "text-red-600"}`}>
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d={data.growthPct > 0 ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
+                </svg>
+                {data.growthPct > 0 ? "+" : ""}{data.growthPct}% vs kipindi kilichopita
+              </span>
+            ) : (
+              <span className="text-muted-foreground">Net Revenue</span>
+            )}
+          </p>
         </div>
-
-        {/* Collection Rate */}
         <div className="rounded-xl bg-card p-5 shadow-sm border border-yellow-200">
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-muted-foreground">Kiwango cha Ukusanyaji</p>
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-100 text-sm">
-              <svg className="h-4 w-4 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </span>
-          </div>
-          <p className="mt-2 text-2xl font-bold text-yellow-600">94.5%</p>
-          <p className="mt-1 text-xs text-yellow-600 font-medium">Collection Rate</p>
-        </div>
-      </div>
-
-      {/* ── Revenue Over Time (Bar Chart) ── */}
-      <div className="rounded-xl bg-card p-6 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-foreground">Mapato kwa Wakati</h2>
-            <p className="text-xs text-muted-foreground">Revenue Over Time — Last 12 months (TZS &apos;000)</p>
-          </div>
-          <div className="flex gap-1 rounded-lg bg-muted p-1">
-            {(["mrr", "arr", "net"] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setChartMode(mode)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                  chartMode === mode
-                    ? "bg-[#2D7A3A] text-white shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {mode === "mrr" ? "MRR" : mode === "arr" ? "ARR" : "Net Revenue"}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Bar chart */}
-        <div className="mt-6 flex items-end gap-2" style={{ height: 220 }}>
-          {monthlyRevenue.map((m, i) => {
-            const val = m[chartKey];
-            const heightPct = (val / maxVal) * 100;
-            const isLast = i === monthlyRevenue.length - 1;
-            return (
-              <div key={m.month} className="flex flex-1 flex-col items-center gap-1.5">
-                <p className="text-[10px] font-medium text-foreground">{fmt(val)}K</p>
-                <div className="relative w-full flex justify-center">
-                  <div
-                    className="w-full max-w-[32px] rounded-t-lg transition-all duration-500"
-                    style={{
-                      height: `${heightPct * 1.8}px`,
-                      backgroundColor: isLast ? "#E8712B" : "#2D7A3A",
-                      opacity: 0.6 + i * 0.035,
-                    }}
-                  />
-                </div>
-                <p className="text-[10px] text-muted-foreground">{m.month}</p>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Trend line indicator */}
-        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-          <div className="h-0.5 w-6 bg-[#E8712B] rounded" />
-          <span>Mwenendo wa kupanda (Upward trend) — +66% growth YTD</span>
-        </div>
-      </div>
-
-      {/* ── Revenue by Plan Tier & Region ── */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Plan Tiers - Horizontal Stacked Bar */}
-        <div className="rounded-xl bg-card p-6 shadow-sm">
-          <h2 className="text-sm font-bold text-foreground">Mapato kwa Mpango</h2>
-          <p className="text-xs text-muted-foreground mb-5">Revenue by Plan Tier</p>
-
-          {/* Stacked bar */}
-          <div className="mb-5">
-            <div className="flex h-10 w-full overflow-hidden rounded-lg">
-              {planTiers.filter(t => t.pct > 0).map((tier) => (
-                <div
-                  key={tier.name}
-                  className="flex items-center justify-center text-[10px] font-bold text-white transition-all"
-                  style={{ width: `${tier.pct}%`, backgroundColor: tier.color }}
-                  title={`${tier.name}: TZS ${fmt(tier.amount)}`}
-                >
-                  {tier.pct}%
-                </div>
-              ))}
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-500/10">
+              <svg className="h-4 w-4 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+              </svg>
             </div>
           </div>
-
-          {/* Legend */}
-          <div className="space-y-3">
-            {planTiers.map((tier) => (
-              <div key={tier.name} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: tier.color }} />
-                  <span className="text-sm text-foreground">{tier.name}</span>
-                </div>
-                <span className="text-sm font-semibold text-foreground">TZS {fmt(tier.amount)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Revenue by Region */}
-        <div className="rounded-xl bg-card p-6 shadow-sm">
-          <h2 className="text-sm font-bold text-foreground">Mapato kwa Mkoa</h2>
-          <p className="text-xs text-muted-foreground mb-5">Revenue by Region</p>
-
-          <div className="space-y-4">
-            {regions.map((r, i) => (
-              <div key={r.name}>
-                <div className="flex items-center justify-between text-sm mb-1.5">
-                  <span className="text-foreground">{r.name}</span>
-                  <span className="font-semibold text-foreground">TZS {fmt(r.amount)}</span>
-                </div>
-                <div className="h-7 w-full rounded-lg bg-gray-100 overflow-hidden">
-                  <div
-                    className="h-full rounded-lg flex items-center justify-end pr-2 text-[10px] font-bold text-white transition-all duration-500"
-                    style={{
-                      width: `${r.pct}%`,
-                      backgroundColor: i === 0 ? "#2D7A3A" : i === 1 ? "#3A9D4A" : i === 2 ? "#E8712B" : i === 3 ? "#3B82F6" : "#9CA3AF",
-                    }}
-                  >
-                    {r.pct}%
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <p className="mt-2 text-2xl font-bold text-yellow-600">{profitMargin}%</p>
+          <p className="mt-1 text-[10px] text-muted-foreground">Profit Margin</p>
         </div>
       </div>
 
-      {/* ── Payment Collection Table ── */}
-      <div className="rounded-xl bg-card p-6 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-5">
-          <div>
-            <h2 className="text-sm font-bold text-foreground">Ukusanyaji wa Malipo</h2>
-            <p className="text-xs text-muted-foreground">Payment Collection — Track subscription payments</p>
-          </div>
-          <div className="flex gap-1 rounded-lg bg-muted p-1">
-            {(["All", "Paid", "Overdue", "Pending"] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setCollectionFilter(f)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                  collectionFilter === f
-                    ? "bg-[#2D7A3A] text-white shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {f === "All" ? "Zote" : f === "Paid" ? "Limelipwa" : f === "Overdue" ? "Limechelewa" : "Linasubiri"}
-              </button>
-            ))}
-          </div>
+      {/* Revenue Bar Chart */}
+      <div className="rounded-xl bg-card p-6 shadow-sm border border-border">
+        <div>
+          <h2 className="text-sm font-bold text-foreground">Mapato kwa Wakati</h2>
+          <p className="text-xs text-muted-foreground">Revenue Over Time (TZS)</p>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left">
-                <th className="pb-3 pr-4 text-xs font-semibold text-muted-foreground">Mgahawa</th>
-                <th className="pb-3 pr-4 text-xs font-semibold text-muted-foreground">Kiasi (TZS)</th>
-                <th className="pb-3 pr-4 text-xs font-semibold text-muted-foreground">Hali</th>
-                <th className="pb-3 pr-4 text-xs font-semibold text-muted-foreground">Njia</th>
-                <th className="pb-3 pr-4 text-xs font-semibold text-muted-foreground">Tarehe</th>
-                <th className="pb-3 text-xs font-semibold text-muted-foreground">Vitendo</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filteredPayments.map((p, i) => (
-                <tr key={i} className={`${p.status === "Overdue" ? "bg-red-50/50" : ""} hover:bg-muted/30 transition`}>
-                  <td className="py-3 pr-4 font-medium text-foreground">{p.restaurant}</td>
-                  <td className="py-3 pr-4 text-foreground font-semibold">TZS {fmt(p.due)}</td>
-                  <td className="py-3 pr-4">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadge(p.status)}`}>
-                      {p.status === "Paid" ? "Limelipwa" : p.status === "Overdue" ? "Limechelewa" : "Linasubiri"}
-                    </span>
-                  </td>
-                  <td className="py-3 pr-4 text-muted-foreground">{p.method}</td>
-                  <td className="py-3 pr-4 text-muted-foreground">{p.date}</td>
-                  <td className="py-3">
-                    <div className="flex gap-1.5">
-                      {p.status === "Overdue" && (
-                        <button className="rounded-md bg-[#E8712B] px-2.5 py-1 text-[10px] font-medium text-white hover:bg-[#d4641f] transition">
-                          Kumbuka
-                        </button>
-                      )}
-                      {p.status !== "Paid" && (
-                        <button className="rounded-md bg-[#2D7A3A] px-2.5 py-1 text-[10px] font-medium text-white hover:bg-[#1B5227] transition">
-                          Lipwa
-                        </button>
-                      )}
-                      {p.status === "Overdue" && (
-                        <button className="rounded-md bg-gray-200 px-2.5 py-1 text-[10px] font-medium text-gray-600 hover:bg-gray-300 transition">
-                          Futa
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredPayments.length === 0 && (
-          <div className="py-8 text-center text-sm text-muted-foreground">
-            Hakuna malipo yenye hali hii
+        {(data?.dailyTimeSeries || []).length === 0 ? (
+          <div className="py-16 flex flex-col items-center gap-3">
+            <svg className="h-12 w-12 text-muted-foreground/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <p className="text-sm font-medium text-muted-foreground">Hakuna data ya mapato kwa kipindi hiki</p>
+            <button
+              onClick={() => setPeriod("month")}
+              className="rounded-lg bg-[#2D7A3A] px-4 py-2 text-xs font-medium text-white transition hover:bg-[#1B5227]"
+            >
+              Tazama Mwezi Uliopita
+            </button>
+          </div>
+        ) : (
+          <div className="mt-6 flex items-end gap-1 overflow-x-auto" style={{ height: 220, minWidth: 0 }}>
+            {data?.dailyTimeSeries.map((d, i) => {
+              const heightPct = (d.revenue / maxBarVal) * 100;
+              const isLast = i === (data?.dailyTimeSeries.length || 0) - 1;
+              return (
+                <div key={d.date} className="flex flex-1 min-w-[20px] flex-col items-center gap-1" title={`${d.date}: TZS ${fmt(d.revenue)}`}>
+                  <p className="text-[8px] font-medium text-foreground whitespace-nowrap">
+                    {d.revenue >= 1000000 ? `${(d.revenue / 1000000).toFixed(1)}M` : d.revenue >= 1000 ? `${Math.round(d.revenue / 1000)}K` : fmt(d.revenue)}
+                  </p>
+                  <div className="relative w-full flex justify-center">
+                    <div
+                      className="w-full max-w-[28px] rounded-t-md transition-all duration-500"
+                      style={{
+                        height: `${Math.max(heightPct * 1.6, 4)}px`,
+                        backgroundColor: isLast ? "#E8712B" : "#2D7A3A",
+                        opacity: 0.6 + i * (0.4 / Math.max((data?.dailyTimeSeries.length || 1), 1)),
+                      }}
+                    />
+                  </div>
+                  <p className="text-[7px] text-muted-foreground whitespace-nowrap">{shortDate(d.date)}</p>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* ── Transaction Log ── */}
-      <div className="rounded-xl bg-card p-6 shadow-sm">
-        <div className="mb-5">
-          <h2 className="text-sm font-bold text-foreground">Kumbukumbu za Miamala</h2>
-          <p className="text-xs text-muted-foreground">Transaction Log — Recent 20 transactions</p>
+      {/* Revenue by City + Payment Methods */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* By City */}
+        <div className="rounded-xl bg-card p-6 shadow-sm border border-border">
+          <h2 className="text-sm font-bold text-foreground">Mapato kwa Mkoa</h2>
+          <p className="text-xs text-muted-foreground mb-5">Revenue by Region</p>
+          {(data?.byCity || []).length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Hakuna data</p>
+          ) : (
+            <div className="space-y-4">
+              {data?.byCity.map((c, i) => {
+                const pct = Math.round((c.amount / maxCityAmount) * 100);
+                const colors = ["#2D7A3A", "#3A9D4A", "#E8712B", "#3B82F6", "#9CA3AF"];
+                return (
+                  <div key={c.city}>
+                    <div className="flex items-center justify-between text-sm mb-1.5">
+                      <span className="text-foreground">{c.city}</span>
+                      <span className="font-semibold text-foreground">TZS {fmt(c.amount)}</span>
+                    </div>
+                    <div className="h-7 w-full rounded-lg bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                      <div
+                        className="h-full rounded-lg flex items-center justify-end pr-2 text-[10px] font-bold text-white transition-all duration-500"
+                        style={{ width: `${pct}%`, backgroundColor: colors[i % colors.length] }}
+                      >
+                        {Math.round((c.amount / totalRevenue) * 100)}%
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left">
-                <th className="pb-3 pr-4 text-xs font-semibold text-muted-foreground">Tarehe</th>
-                <th className="pb-3 pr-4 text-xs font-semibold text-muted-foreground">Mgahawa</th>
-                <th className="pb-3 pr-4 text-xs font-semibold text-muted-foreground">Kiasi (TZS)</th>
-                <th className="pb-3 pr-4 text-xs font-semibold text-muted-foreground">Aina</th>
-                <th className="pb-3 pr-4 text-xs font-semibold text-muted-foreground">Njia</th>
-                <th className="pb-3 text-xs font-semibold text-muted-foreground">Hali</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {transactions.map((t, i) => (
-                <tr key={i} className="hover:bg-muted/30 transition">
-                  <td className="py-3 pr-4 text-muted-foreground text-xs whitespace-nowrap">{t.date}</td>
-                  <td className="py-3 pr-4 font-medium text-foreground">{t.restaurant}</td>
-                  <td className="py-3 pr-4 font-semibold text-foreground">
-                    {t.type === "Refund" ? (
-                      <span className="text-red-600">-TZS {fmt(t.amount)}</span>
-                    ) : (
-                      <>TZS {fmt(t.amount)}</>
-                    )}
-                  </td>
-                  <td className="py-3 pr-4">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${typeBadge(t.type)}`}>
-                      {t.type === "Subscription" ? "Usajili" : t.type === "Upgrade" ? "Kupandisha" : "Kurudisha"}
-                    </span>
-                  </td>
-                  <td className="py-3 pr-4 text-muted-foreground">{t.method}</td>
-                  <td className="py-3">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${statusBadge(t.status)}`}>
-                      {t.status === "Success" ? "Imefanikiwa" : t.status === "Pending" ? "Inasubiri" : "Imeshindwa"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* By Payment Method */}
+        <div className="rounded-xl bg-card p-6 shadow-sm border border-border">
+          <h2 className="text-sm font-bold text-foreground">Mapato kwa Njia ya Malipo</h2>
+          <p className="text-xs text-muted-foreground mb-5">Revenue by Payment Method</p>
+          {(data?.byPaymentMethod || []).length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Hakuna data</p>
+          ) : (
+            <div className="space-y-3">
+              {data?.byPaymentMethod.sort((a, b) => b.amount - a.amount).map((p) => {
+                const pct = totalRevenue > 0 ? Math.round((p.amount / totalRevenue) * 100) : 0;
+                return (
+                  <div key={p.method} className="flex items-center gap-3">
+                    <div
+                      className="h-3 w-3 rounded-sm shrink-0"
+                      style={{ backgroundColor: PAYMENT_COLORS[p.method || ""] || "#6B7280" }}
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm text-foreground">
+                          {PAYMENT_LABELS[p.method || ""] || p.method}
+                        </span>
+                        <span className="text-sm font-semibold text-foreground">TZS {fmt(p.amount)}</span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-muted/50">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${pct}%`,
+                            backgroundColor: PAYMENT_COLORS[p.method || ""] || "#6B7280",
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{p.count} oda</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* Transaction Table */}
+      <div className="rounded-xl bg-card p-6 shadow-sm border border-border">
+        <div className="mb-5">
+          <h2 className="text-sm font-bold text-foreground">Kumbukumbu za Miamala</h2>
+          <p className="text-xs text-muted-foreground">Recent Transactions</p>
+        </div>
+
+        {(data?.recentTransactions || []).length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Hakuna miamala kwa kipindi hiki</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left">
+                  <th className="pb-3 pr-4 text-xs font-semibold text-muted-foreground">Tarehe</th>
+                  <th className="pb-3 pr-4 text-xs font-semibold text-muted-foreground">Mgahawa</th>
+                  <th className="pb-3 pr-4 text-xs font-semibold text-muted-foreground">Kiasi (TZS)</th>
+                  <th className="pb-3 pr-4 text-xs font-semibold text-muted-foreground">Njia</th>
+                  <th className="pb-3 text-xs font-semibold text-muted-foreground">Hali</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {data?.recentTransactions.map((t) => (
+                  <tr key={t.id} className="hover:bg-muted/30 transition">
+                    <td className="py-3 pr-4 text-xs text-muted-foreground whitespace-nowrap">{fmtDate(t.createdAt)}</td>
+                    <td className="py-3 pr-4 font-medium text-foreground">{t.restaurant}</td>
+                    <td className="py-3 pr-4 font-semibold text-foreground">TZS {fmt(t.amount)}</td>
+                    <td className="py-3 pr-4 text-muted-foreground">
+                      {PAYMENT_LABELS[t.paymentMethod || ""] || t.paymentMethod || "-"}
+                    </td>
+                    <td className="py-3">
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${STATUS_BADGE[t.paymentStatus] || "bg-gray-100 text-gray-600"}`}>
+                        {STATUS_LABEL[t.paymentStatus] || t.paymentStatus}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

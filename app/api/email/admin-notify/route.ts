@@ -1,7 +1,7 @@
 import { resend, FROM_EMAIL } from "@/lib/resend";
 import { NextRequest } from "next/server";
 
-const ADMIN_EMAIL = "redvalvet450@gmail.com";
+const ADMIN_EMAIL = "erickmathew0021@gmail.com";
 
 export async function POST(request: NextRequest) {
   try {

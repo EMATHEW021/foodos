@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     // Notify admin
     resend.emails.send({
       from: FROM_EMAIL,
-      to: "redvalvet450@gmail.com",
+      to: "erickmathew0021@gmail.com",
       subject: `KYC Mpya: ${tenant.name} - FoodOS`,
       html: `
         <div style="font-family: -apple-system, sans-serif; max-width: 600px; margin: 0 auto; background: #f7f7f7;">
